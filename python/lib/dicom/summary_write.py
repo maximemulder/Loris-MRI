@@ -27,7 +27,7 @@ def write_info(info: Info):
         ('Unique Study ID'          , info.study_uid),
         ('Patient Name'             , info.patient_name),
         ('Patient ID'               , info.patient_id),
-        ('Parient date of birth'    , info.patient_birthdate),
+        ('Patient date of birth'    , info.patient_birthdate),
         ('Scan Date'                , info.scan_date),
         ('Patient Sex'              , info.patient_sex),
         ('Scanner Model Name'       , info.scanner_model),
@@ -54,17 +54,17 @@ def write_files_table(files: list[File]):
 def write_acquis_table(acquis: list[Acquisition]):
     writer = TableWriter()
     writer.append_row(['Series (SN)', 'Name of series', 'Seq Name', 'echoT ms', 'repT ms', 'invT ms', 'sth mm', 'PhEnc', 'NoF'])
-    for acquisition in acquis:
+    for acqui in acquis:
         writer.append_row([
-            acquisition.series_number,
-            acquisition.series_description,
-            acquisition.sequence_name,
-            acquisition.echo_time,
-            acquisition.repetition_time,
-            acquisition.inversion_time,
-            acquisition.slice_thickness,
-            acquisition.phase_encoding,
-            acquisition.files_count,
+            acqui.series_number,
+            acqui.series_description,
+            acqui.sequence_name,
+            acqui.echo_time,
+            acqui.repetition_time,
+            acqui.inversion_time,
+            acqui.slice_thickness,
+            acqui.phase_encoding,
+            acqui.nof,
         ])
 
     return '\n' + writer.write()

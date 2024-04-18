@@ -65,7 +65,7 @@ class Acquisition:
     inversion_time:     float | None # In Milliseconds
     slice_thickness:    float | None # In Millimeters
     phase_encoding:     str | None
-    files_count:        int
+    nof:                str
 
     def __init__(self,
         series_number:      int,
@@ -76,7 +76,7 @@ class Acquisition:
         inversion_time:     float | None,
         slice_thickness:    float | None,
         phase_encoding:     str | None,
-        files_count:        int,
+        nof:                str,
     ):
         self.series_number      = series_number
         self.series_description = series_description
@@ -86,7 +86,7 @@ class Acquisition:
         self.inversion_time     = inversion_time
         self.slice_thickness    = slice_thickness
         self.phase_encoding     = phase_encoding
-        self.files_count        = files_count
+        self.nof                = nof
 
 class Summary:
     info: Info

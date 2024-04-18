@@ -1,5 +1,6 @@
 import argparse
 import sys
+import traceback
 
 from lib.dicom import summary
 
@@ -17,6 +18,7 @@ except Exception as e:
     print(f'ERROR: Cannot create a summary for the directory \'{args.directory}\'.', file=sys.stderr)
     print('Exception message:', file=sys.stderr)
     print(e, file=sys.stderr)
+    traceback.print_exc(file=sys.stderr)
     exit(-1)
 
 print(summary.write_to_string(dicom))

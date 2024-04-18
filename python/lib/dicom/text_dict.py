@@ -27,7 +27,7 @@ class DictWriter:
 
 class DictReader:
     def __init__(self, text: str):
-        self.reader = io.StringIO(text)
+        self.reader = io.StringIO(text.strip())
 
     T = TypeVar('T')
     def read(self, mapper: Callable[[dict[str, str | None]], T]) -> T:
