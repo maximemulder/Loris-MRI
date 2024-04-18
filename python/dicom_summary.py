@@ -7,7 +7,6 @@ parser = argparse.ArgumentParser(description=
     'Generate and print the summary of a DICOM directory in the console.')
 
 parser.add_argument('directory',
-    required=True,
     help='The DICOM directory')
 
 args = parser.parse_args()

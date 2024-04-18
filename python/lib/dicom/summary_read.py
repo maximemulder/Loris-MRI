@@ -1,32 +1,10 @@
 import csv
 import re
-from typing import Any
 import xml.etree.ElementTree as ET
 from lib.dicom.summary_type import *
-
-def read_value(text: str):
-    return text.strip() or None
-
-def read_value_int(text: str):
-    value = read_value(text)
-    if value == None:
-        return None
-
-    return int(value)
-
-def read_value_float(text: str):
-    value = read_value(text)
-    if value == None:
-        return None
-
-    return float(value)
-
-def read_value_required(text: str):
-    value = read_value(text)
-    if value == None:
-        raise Exception(f'Excpected value string but found empty string.')
-
-    return value
+from lib.dicom.text import *
+from lib.dicom.text_dict import DictReader
+from lib.dicom.text_table import TableReader
 
 def get_xml_child(element: ET.Element, tag: str):
     child = element.get(tag)
@@ -51,62 +29,41 @@ def read_summary_xml(element: ET.Element):
     files  = read_files_table(files.text or '')
     acquis = read_acquis_table(acquis.text or '')
 
-    return Summary( info, files, acquis)
-
-info_regex = r"""
-\* Unique Study ID          :    (.+)
-\* Patient Name             :    (.+)
-\* Patient ID               :    (.+)
-\* Patient date of birth    :    (.+)
-\* Scan Date                :    (.+)
-\* Patient Sex              :    (.+)
-\* Scanner Model Name       :    (.+)
-\* Scanner Software Version :    (.+)
-\* Institution Name         :    (.+)
-\* Modality                 :    (.+)
-"""
+    return Summary(info, files, acquis)
 
 def read_info_text(text: str):
-    matches = re.match(info_regex, text)
-    if matches == None:
-        raise Exception(f'Could not parse the summary general information.')
-
-    return Info(
-        matches.group(1),
-        matches.group(2),
-        matches.group(3),
-        matches.group(4),
-        matches.group(5),
-        matches.group(6),
-        matches.group(7),
-        matches.group(8),
-        matches.group(9),
-        matches.group(10),
-    )
+    return DictReader(text).read(lambda entries: Info(
+        read_required(entries['Unique Study ID']),
+        read_required(entries['Patient Name']),
+        read_required(entries['Patient ID']),
+        read_required(entries['Patient date of birth']),
+        entries['Scan Date'],
+        read_required(entries['Patient Sex']),
+        read_required(entries['Scanner Model Name']),
+        read_required(entries['Scanner Software Version']),
+        entries['Institution Name'],
+        read_required(entries['Modality']),
+    ))
 
 def read_files_table(text: str):
-    reader = csv.reader(text.strip().splitlines(), delimiter='|')
-    next(reader)
-    return list(map(lambda row: File(
-        read_value_int(row[0]),
-        read_value_int(row[1]),
-        read_value_int(row[2]),
-        read_value(row[3]),
-        read_value_required(row[4]),
-        read_value_required(row[5]),
-    ), reader))
+    return TableReader(text).read(lambda row: File(
+        read_int(row[0]),
+        read_int(row[1]),
+        read_int(row[2]),
+        row[3],
+        read_required(row[4]),
+        read_required(row[5]),
+    ))
 
 def read_acquis_table(text: str):
-    reader = csv.reader(text.strip().splitlines(), delimiter='|')
-    next(reader)
-    return list(map(lambda row: Acquisition(
-        int(read_value_required(row[0])),
-        read_value(row[1]),
-        read_value(row[2]),
-        read_value_float(row[3]),
-        read_value_float(row[4]),
-        read_value_float(row[5]),
-        read_value_float(row[6]),
-        read_value(row[7]),
-        int(read_value_required(row[8])),
-    ), reader))
+    return TableReader(text).read(lambda row: Acquisition(
+        int(read_required(row[0])),
+        row[1],
+        row[2],
+        read_float(row[3]),
+        read_float(row[4]),
+        read_float(row[5]),
+        read_float(row[6]),
+        row[7],
+        int(read_required(row[8])),
+    ))

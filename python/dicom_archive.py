@@ -27,6 +27,10 @@ def print_verbose(message: str):
     if args.verbose:
         print(message)
 
+# Remove trailing slashes
+while args.source.endswith('/'):
+    args.source = args.source[:-1]
+
 base_name = os.path.basename(args.source)
 
 tar_path     = f'{args.target}/{base_name}.tar'

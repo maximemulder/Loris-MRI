@@ -2,15 +2,8 @@ from functools import reduce
 import re
 import xml.etree.ElementTree as ET
 from lib.dicom.summary_type import *
-
-def write_value(value: str | int | float):
-    return str(value)
-
-def write_value_null(value: str | int | float | None):
-    if value == None:
-        return ''
-
-    return str(value)
+from lib.dicom.text_dict import DictWriter
+from lib.dicom.text_table import TableWriter
 
 def write_to_file(filename: str, summary: Summary):
     string = write_to_string(summary)
@@ -30,75 +23,51 @@ def write_xml(summary: Summary):
     return study
 
 def write_info(info: Info):
-    return f"""
-* Unique Study ID          :    {write_value(info.study_uid)}
-* Patient Name             :    {write_value(info.patient_name)}
-* Patient ID               :    {write_value(info.patient_id)}
-* Patient date of birth    :    {write_value_null(info.patient_birthdate)}
-* Scan Date                :    {write_value(info.scan_date)}
-* Patient Sex              :    {write_value_null(info.patient_sex)}
-* Scanner Model Name       :    {write_value(info.scanner_model)}
-* Scanner Software Version :    {write_value(info.scanner_software)}
-* Institution Name         :    {write_value_null(info.institution)}
-* Modality                 :    {write_value(info.modality)}
-"""
-
-class TableWriter:
-    rows: list[list[str]]
-
-    def __init__(self):
-        self.rows = []
-
-    def append_row(self, cells: list[str]):
-        self.rows.append(cells)
-
-    def get_lengths(self):
-        lengths = [0] * len(self.rows[0])
-        return reduce(lambda lengths, row: list(map(lambda length, cell: max(length, len(cell)), lengths, row)), self.rows, lengths)
-
-    def to_string(self):
-        if len(self.rows) == 0:
-            return ''
-
-        lengths = self.get_lengths()
-
-        rows = map(lambda row: list(map(lambda cell, length: cell.ljust(length), row, lengths)), self.rows)
-        rows = map(lambda row: ' | '.join(row).rstrip() + '\n', rows)
-
-        return ''.join(rows)
+    return '\n' + DictWriter([
+        ('Unique Study ID'          , info.study_uid),
+        ('Patient Name'             , info.patient_name),
+        ('Patient ID'               , info.patient_id),
+        ('Parient date of birth'    , info.patient_birthdate),
+        ('Scan Date'                , info.scan_date),
+        ('Patient Sex'              , info.patient_sex),
+        ('Scanner Model Name'       , info.scanner_model),
+        ('Scanner Software Version' , info.scanner_software),
+        ('Institution Name'         , info.institution),
+        ('Modality'                 , info.modality),
+    ]).write()
 
 def write_files_table(files: list[File]):
     writer = TableWriter()
     writer.append_row(['SN', 'FN', 'EN', 'Series', 'md5sum', 'File name'])
     for file in files:
         writer.append_row([
-            write_value_null(file.series_number),
-            write_value_null(file.file_number),
-            write_value_null(file.echo_number),
-            write_value_null(file.series_description),
-            write_value(file.md5_sum),
-            write_value(file.file_name),
+            file.series_number,
+            file.file_number,
+            file.echo_number,
+            file.series_description,
+            file.md5_sum,
+            file.file_name,
         ])
 
-    return '\n' + writer.to_string()
+    return '\n' + writer.write()
 
 def write_acquis_table(acquis: list[Acquisition]):
     writer = TableWriter()
     writer.append_row(['Series (SN)', 'Name of series', 'Seq Name', 'echoT ms', 'repT ms', 'invT ms', 'sth mm', 'PhEnc', 'NoF'])
     for acquisition in acquis:
         writer.append_row([
-            write_value(acquisition.series_number),
-            write_value_null(acquisition.series_description),
-            write_value_null(acquisition.sequence_name),
-            write_value_null(acquisition.echo_time),
-            write_value_null(acquisition.repetition_time),
-            write_value_null(acquisition.inversion_time),
-            write_value_null(acquisition.slice_thickness),
-            write_value_null(acquisition.phase_encoding),
-            write_value(acquisition.files_count),
+            acquisition.series_number,
+            acquisition.series_description,
+            acquisition.sequence_name,
+            acquisition.echo_time,
+            acquisition.repetition_time,
+            acquisition.inversion_time,
+            acquisition.slice_thickness,
+            acquisition.phase_encoding,
+            acquisition.files_count,
         ])
 
-    return '\n' + writer.to_string()
+    return '\n' + writer.write()
 
 def write_ending(summary: Summary):
     if summary.info.patient_birthdate != None:
@@ -106,7 +75,7 @@ def write_ending(summary: Summary):
         scan_match  = re.match(r'(\d{4})-(\d{2})-(\d{2})', summary.info.scan_date)
 
         if birth_match == None or scan_match == None:
-            raise Exception()
+            raise Exception('Birth date or scan date does not match date syntax.')
 
         years  = int(scan_match.group(1)) - int(birth_match.group(1))
         months = int(scan_match.group(2)) - int(birth_match.group(2))
@@ -116,7 +85,7 @@ def write_ending(summary: Summary):
     else:
         age = ''
 
-    return f"""
-Total number of files   :   {len(summary.files)}
-Age at scan             :   {age}
-"""
+    return '\n' + DictWriter([
+        ('Total number of files', len(summary.files)),
+        ('Age at scan', age),
+    ]).write()
