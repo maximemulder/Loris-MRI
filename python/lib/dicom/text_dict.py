@@ -33,9 +33,9 @@ class DictReader:
     def read(self, mapper: Callable[[dict[str, str | None]], T]) -> T:
         entries = {}
         for line in self.reader.readlines():
-            groups = re.match(r'\* (.*[^ ]) *: *(.*)', line)
+            groups = re.match(r'\* (\w(?: *\w+)*) *: *(.*)', line)
             if not groups:
-                raise Exception('Cannot parse text dictionnary.')
+                raise Exception(f'Cannot parse text dictionnary.')
             entries[groups.group(1)] = read_string(groups.group(2))
 
         return mapper(entries)

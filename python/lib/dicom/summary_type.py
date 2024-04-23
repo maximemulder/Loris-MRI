@@ -1,37 +1,49 @@
+class Patient:
+    id:        str
+    name:      str
+    sex:       str | None
+    birthdate: str | None
+
+    def __init__(self, id: str, name: str, sex: str | None, birthdate: str | None):
+        self.id        = id
+        self.name      = name
+        self.sex       = sex
+        self.birthdate = birthdate
+
+class Scanner:
+    manufacturer:     str
+    model:            str
+    serial_number:    str
+    software_version: str
+
+    def __init__(self, manufacturer: str, model: str, serial_number: str, software_version: str):
+        self.manufacturer     = manufacturer
+        self.model            = model
+        self.serial_number    = serial_number
+        self.software_version = software_version
+
 class Info:
-    study_uid:         str
-    patient_id:        str
-    patient_name:      str
-    patient_sex:       str | None
-    patient_birthdate: str | None
-    scan_date:         str
-    scanner_model:     str
-    scanner_software:  str
-    institution:       str | None
-    modality:          str
+    study_uid:   str
+    patient:     Patient
+    scanner:     Scanner
+    scan_date:   str
+    institution: str | None
+    modality:    str
 
     def __init__(self,
-        study_uid:         str,
-        patient_id:        str,
-        patient_name:      str,
-        patient_sex:       str | None,
-        patient_birthdate: str | None,
-        scan_date:         str,
-        scanner_model:     str,
-        scanner_software:  str,
-        institution:       str | None,
-        modality:          str,
+        study_uid:   str,
+        patient:     Patient,
+        scanner:     Scanner,
+        scan_date:   str,
+        institution: str | None,
+        modality:    str,
     ):
-        self.study_uid         = study_uid
-        self.patient_id        = patient_id
-        self.patient_name      = patient_name
-        self.patient_sex       = patient_sex
-        self.patient_birthdate = patient_birthdate
-        self.scan_date         = scan_date
-        self.scanner_model     = scanner_model
-        self.scanner_software  = scanner_software
-        self.institution       = institution
-        self.modality          = modality
+        self.study_uid   = study_uid
+        self.patient     = patient
+        self.scanner     = scanner
+        self.scan_date   = scan_date
+        self.institution = institution
+        self.modality    = modality
 
 class File:
     series_number:      int | None
@@ -65,7 +77,9 @@ class Acquisition:
     inversion_time:     float | None # In Milliseconds
     slice_thickness:    float | None # In Millimeters
     phase_encoding:     str | None
-    nof:                str
+    number_of_files:    int
+    series_uid:         str | None
+    modality:           str | None
 
     def __init__(self,
         series_number:      int,
@@ -76,7 +90,9 @@ class Acquisition:
         inversion_time:     float | None,
         slice_thickness:    float | None,
         phase_encoding:     str | None,
-        nof:                str,
+        number_of_files:    int,
+        series_uid:         str | None,
+        modality:           str | None,
     ):
         self.series_number      = series_number
         self.series_description = series_description
@@ -86,14 +102,23 @@ class Acquisition:
         self.inversion_time     = inversion_time
         self.slice_thickness    = slice_thickness
         self.phase_encoding     = phase_encoding
-        self.nof                = nof
+        self.number_of_files    = number_of_files
+        self.series_uid         = series_uid
+        self.modality           = modality
 
 class Summary:
     info: Info
-    files: list[File]
-    acquisitions: list[Acquisition]
+    acquis: list[Acquisition]
+    dicom_files: list[File]
+    other_files: list[None]
 
-    def __init__(self, info: Info, files: list[File], acquisitions: list[Acquisition]):
+    def __init__(self,
+        info: Info,
+        acquis: list[Acquisition],
+        dicom_files: list[File],
+        other_files: list[None],
+    ):
         self.info         = info
-        self.files        = files
-        self.acquisitions = acquisitions
+        self.acquis       = acquis
+        self.dicom_files  = dicom_files
+        self.other_files  = other_files

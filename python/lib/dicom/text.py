@@ -10,8 +10,11 @@ def read_string(string: str):
 
     return string
 
+# TODO: Change read aproach: empty string by default, with nullable as an add-on
+
 def read_required(text: str | None):
     if text == None:
+        return ''
         raise Exception(f'Expected value string but found empty string.')
 
     return text
@@ -27,3 +30,9 @@ def read_float(text: str | None):
         return None
 
     return float(text)
+
+def null(text: str):
+    if text == '':
+        return None
+
+    return text

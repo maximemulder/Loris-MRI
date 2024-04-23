@@ -80,9 +80,9 @@ log.write_to_file(log_path, dicom_log)
 print_verbose('Copying into DICOM archive')
 
 with tarfile.open(archive_path, 'w') as tar:
-    tar.add(zip_path)
-    tar.add(summary_path)
-    tar.add(log_path)
+    tar.add(zip_path,     os.path.basename(zip_path))
+    tar.add(summary_path, os.path.basename(summary_path))
+    tar.add(log_path,     os.path.basename(log_path))
 
 print_verbose('Removing temporary files')
 

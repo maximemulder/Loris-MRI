@@ -2,6 +2,7 @@ from datetime import datetime
 import os
 import re
 import socket
+from lib.dicom.text_dict import *
 
 class Log:
     source_path:     str
@@ -10,8 +11,8 @@ class Log:
     creator_os:      str
     creator_name:    str
     archive_date:    str
-    summary_version: str
-    archive_version: str
+    summary_version: int
+    archive_version: int
     tarball_md5_sum: str
     zipball_md5_sum: str
     archive_md5_sum: str
@@ -23,8 +24,8 @@ class Log:
         creator_os:      str,
         creator_name:    str,
         archive_date:    str,
-        summary_version: str,
-        archive_version: str,
+        summary_version: int,
+        archive_version: int,
         tarball_md5_sum: str,
         zipball_md5_sum: str,
         archive_md5_sum: str,
@@ -41,39 +42,20 @@ class Log:
         self.zipball_md5_sum = zipball_md5_sum
         self.archive_md5_sum = archive_md5_sum
 
-
-regex = r"""\
-\* Taken from dir                   :    (.+)
-\* Archive target location          :    (.+)
-\* Name of creating host            :    (.+)
-\* Name of host OS                  :    (.+)
-\* Created by user                  :    (.+)
-\* Archived on                      :    (.+)
-\* dicomSummary version             :    (.+)
-\* dicomTar version                 :    (.+)
-\* md5sum for DICOM tarball         :    (.+)
-\* md5sum for DICOM tarball gzipped :    (.+)
-\* md5sum for complete archive      :    (.+)
-"""
-
 def read_from_string(string: str):
-    match = re.match(regex, string)
-    if match == None:
-        raise Exception('Could not read the log string.')
-
-    return Log(
-        match.group(0),
-        match.group(1),
-        match.group(2),
-        match.group(3),
-        match.group(4),
-        match.group(5),
-        match.group(6),
-        match.group(7),
-        match.group(8),
-        match.group(9),
-        match.group(10),
-    )
+    return DictReader(string).read(lambda entries: Log(
+        entries['Taken from dir'],
+        entries['Archive target location'],
+        entries['Name of creating host'],
+        entries['Name of host OS'],
+        entries['Created by user'],
+        entries['Archived on'],
+        int(entries['dicomSummary version']),
+        int(entries['dicomTar version']),
+        entries['md5sum for DICOM tarball'],
+        entries['md5sum for DICOM tarball gzipped'],
+        entries['md5sum for complete archive'],
+    ))
 
 def read_from_file(filename: str):
     with open(filename) as file:
@@ -109,8 +91,8 @@ def make(source: str, target: str, tarball_md5_sum: str, zipball_md5_sum: str):
         os.uname().sysname,
         os.environ['USER'],
         datetime.strftime(datetime.now(), '%Y-%m-%d %H:%M:%S'),
-        '1',
-        '1',
+        1,
+        1,
         tarball_md5_sum,
         zipball_md5_sum,
         'Provided in database only',

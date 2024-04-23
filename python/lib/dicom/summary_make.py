@@ -16,12 +16,18 @@ def get_value(dicom: pydicom.Dataset, tag: str):
 
 def get_value_null(dicom: pydicom.Dataset, tag: str):
     if tag not in dicom:
-        return
+        return None
 
-    return dicom[tag].value
+    return dicom[tag].value or None
 
 def format_date(date: str):
     return "-".join([date[:4], date[4:6], date[6:]])
+
+def format_date_null(date: str | None):
+    if date == None:
+        return None
+
+    return format_date(date)
 
 def cmp_int_null(a: int | None, b: int | None):
     match a, b:
@@ -33,6 +39,22 @@ def cmp_int_null(a: int | None, b: int | None):
             return 1
         case a, b:
             return a - b
+
+def cmp_string_null(a: str | None, b: str | None):
+    match a, b:
+        case None, None:
+            return 0
+        case _, None:
+            return -1
+        case None, _:
+            return 1
+        case a, b:
+            if a < b:
+                return -1
+            elif a > b:
+                return 1
+            else:
+                return 0
 
 def cmp_files(a: File, b: File):
     """
@@ -47,7 +69,9 @@ def cmp_acquis(a: Acquisition, b: Acquisition):
     """
     Compare the order of two acquisitions to sort them in the summary.
     """
-    return a.series_number - b.series_number
+    return \
+        a.series_number - b.series_number or \
+        cmp_string_null(a.sequence_name, b.sequence_name)
 
 def make_summary(dir_path: str):
     info = None
@@ -71,6 +95,8 @@ def make_summary(dir_path: str):
         if not (series, sequence, echo) in acquis_dict:
             acquis_dict[(series, sequence, echo)] = make_acqui(dicom)
 
+        acquis_dict[(series, sequence, echo)].number_of_files += 1
+
     if info == None:
         raise Exception('Found no DICOM file in the directory.')
 
@@ -79,18 +105,28 @@ def make_summary(dir_path: str):
     files  = sorted(files,  key=cmp_to_key(cmp_files))
     acquis = sorted(acquis, key=cmp_to_key(cmp_acquis))
 
-    return Summary(info, files, acquis)
+    return Summary(info, acquis, files, [])
 
 def make_info(dicom: pydicom.Dataset):
-    return Info(
-        get_value(dicom, 'StudyInstanceUID'),
+    patient = Patient(
         get_value(dicom, 'PatientID'),
         get_value(dicom, 'PatientName'),
         get_value(dicom, 'PatientSex'),
-        format_date(get_value(dicom, 'PatientBirthDate')),
-        format_date(get_value(dicom, 'StudyDate')),
+        format_date_null(get_value_null(dicom, 'PatientBirthDate')),
+    )
+
+    scanner = Scanner(
+        get_value(dicom, 'Manufacturer'),
         get_value(dicom, 'ManufacturerModelName'),
+        get_value(dicom, 'DeviceSerialNumber'),
         get_value(dicom, 'SoftwareVersions'),
+    )
+
+    return Info(
+        get_value(dicom, 'StudyInstanceUID'),
+        patient,
+        scanner,
+        format_date(get_value(dicom, 'StudyDate')),
         get_value_null(dicom, 'InstitutionName'),
         get_value(dicom, 'Modality'),
     )
@@ -114,9 +150,11 @@ def make_acqui(dicom: pydicom.Dataset):
         get_value_null(dicom, 'SeriesDescription'),
         get_value_null(dicom, 'SequenceName'),
         get_value_null(dicom, 'EchoTime'),
-        get_value_null(dicom, 'InversionTime'),
         get_value_null(dicom, 'RepetitionTime'),
+        get_value_null(dicom, 'InversionTime'),
         get_value_null(dicom, 'SliceThickness'),
         get_value_null(dicom, 'InPlanePhaseEncodingDirection'),
-        get_value(dicom, 'Modality'),
+        0,
+        get_value_null(dicom, 'SeriesInstanceUID'),
+        get_value_null(dicom, 'Modality'),
     )

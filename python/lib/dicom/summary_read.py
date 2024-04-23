@@ -40,18 +40,30 @@ def read_summary_xml(study: ET.Element):
     files  = read_files_table(files.text or '')
     acquis = read_acquis_table(acquis.text or '')
 
-    return Summary(info, files, acquis)
+    return Summary(info, acquis, files, [])
 
-def read_info_text(text: str):
-    return DictReader(text).read(lambda entries: Info(
-        read_required(entries['Unique Study ID']),
+def read_patient_entries(entries: dict[str, str | None]):
+    return Patient(
         read_required(entries['Patient ID']),
         read_required(entries['Patient Name']),
         entries['Patient Sex'],
         entries['Patient date of birth'],
-        read_required(entries['Scan Date']),
+    )
+
+def read_scanner_entries(entries: dict[str, str | None]):
+    return Scanner(
+        read_required(entries['Scanner Manufacturer']),
         read_required(entries['Scanner Model Name']),
+        read_required(entries['Scanner Serial Number']),
         read_required(entries['Scanner Software Version']),
+    )
+
+def read_info_text(text: str):
+    return DictReader(text).read(lambda entries: Info(
+        read_required(entries['Unique Study ID']),
+        read_patient_entries(entries),
+        read_scanner_entries(entries),
+        read_required(entries['Scan Date']),
         entries['Institution Name'],
         read_required(entries['Modality']),
     ))
@@ -76,5 +88,7 @@ def read_acquis_table(text: str):
         read_float(row[5]),
         read_float(row[6]),
         row[7],
-        read_required(row[8]),
+        read_int(row[8]) or 0, # TODO
+        row[9],
+        row[10],
     ))

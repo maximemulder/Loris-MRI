@@ -16,8 +16,8 @@ def write_to_string(summary: Summary) -> str:
 def write_xml(summary: Summary):
     study = ET.Element('STUDY')
     ET.SubElement(study, 'STUDY_INFO').text   = write_info(summary.info)
-    ET.SubElement(study, 'FILES').text        = write_files_table(summary.files)
-    ET.SubElement(study, 'ACQUISITIONS').text = write_acquis_table(summary.acquisitions)
+    ET.SubElement(study, 'FILES').text        = write_files_table(summary.dicom_files)
+    ET.SubElement(study, 'ACQUISITIONS').text = write_acquis_table(summary.acquis)
     ET.SubElement(study, 'SUMMARY').text      = write_ending(summary)
     ET.indent(study, space='')
     return study
@@ -25,13 +25,15 @@ def write_xml(summary: Summary):
 def write_info(info: Info):
     return '\n' + DictWriter([
         ('Unique Study ID'          , info.study_uid),
-        ('Patient Name'             , info.patient_name),
-        ('Patient ID'               , info.patient_id),
-        ('Patient date of birth'    , info.patient_birthdate),
+        ('Patient Name'             , info.patient.name),
+        ('Patient ID'               , info.patient.id),
+        ('Patient date of birth'    , info.patient.birthdate),
+        ('Patient Sex'              , info.patient.sex),
         ('Scan Date'                , info.scan_date),
-        ('Patient Sex'              , info.patient_sex),
-        ('Scanner Model Name'       , info.scanner_model),
-        ('Scanner Software Version' , info.scanner_software),
+        ('Scanner Manufacturer'     , info.scanner.manufacturer),
+        ('Scanner Model Name'       , info.scanner.model),
+        ('Scanner Serial Number'    , info.scanner.serial_number),
+        ('Scanner Software Version' , info.scanner.software_version),
         ('Institution Name'         , info.institution),
         ('Modality'                 , info.modality),
     ]).write()
@@ -53,7 +55,7 @@ def write_files_table(files: list[File]):
 
 def write_acquis_table(acquis: list[Acquisition]):
     writer = TableWriter()
-    writer.append_row(['Series (SN)', 'Name of series', 'Seq Name', 'echoT ms', 'repT ms', 'invT ms', 'sth mm', 'PhEnc', 'NoF'])
+    writer.append_row(['Series (SN)', 'Name of series', 'Seq Name', 'echoT ms', 'repT ms', 'invT ms', 'sth mm', 'PhEnc', 'NoF', 'Series UID', 'Mod'])
     for acqui in acquis:
         writer.append_row([
             acqui.series_number,
@@ -64,18 +66,20 @@ def write_acquis_table(acquis: list[Acquisition]):
             acqui.inversion_time,
             acqui.slice_thickness,
             acqui.phase_encoding,
-            acqui.nof,
+            acqui.number_of_files,
+            acqui.series_uid,
+            acqui.modality,
         ])
 
     return '\n' + writer.write()
 
 def write_ending(summary: Summary):
-    if summary.info.patient_birthdate != None:
-        birth_match = re.match(r'(\d{4})-(\d{2})-(\d{2})', summary.info.patient_birthdate)
+    if summary.info.patient.birthdate != None:
+        birth_match = re.match(r'(\d{4})-(\d{2})-(\d{2})', summary.info.patient.birthdate)
         scan_match  = re.match(r'(\d{4})-(\d{2})-(\d{2})', summary.info.scan_date)
 
         if birth_match == None or scan_match == None:
-            raise Exception('Birth date or scan date does not match date syntax.')
+            raise Exception(f'Birth date or scan date does not match date syntax. {summary.info.patient.birthdate} {summary.info.scan_date}')
 
         years  = int(scan_match.group(1)) - int(birth_match.group(1))
         months = int(scan_match.group(2)) - int(birth_match.group(2))
@@ -86,6 +90,6 @@ def write_ending(summary: Summary):
         age = ''
 
     return '\n' + DictWriter([
-        ('Total number of files', len(summary.files)),
+        ('Total number of files', len(summary.dicom_files) + len(summary.other_files)),
         ('Age at scan', age),
     ]).write()
