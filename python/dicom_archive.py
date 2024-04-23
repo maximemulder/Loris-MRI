@@ -7,6 +7,7 @@ import tarfile
 
 from lib.dicom import summary
 from lib.dicom import log
+from lib.dicom.text import *
 
 parser = argparse.ArgumentParser(description=
     'Archive a DICOM directory.')
@@ -64,8 +65,9 @@ print_verbose('Calculating DICOM zip MD5 sum')
 with open(zip_path, 'rb') as zip:
     zipball_md5_sum = hashlib.md5(zip.read()).hexdigest()
 
-date = dicom_summary.info.scan_date
-archive_path = f'{args.target}/DCM_{date[0:4]}-{date[5:7]}-{date[8:10]}_{base_name}.tar'
+scan_date = write_date(dicom_summary.info.scan_date)
+
+archive_path = f'{args.target}/DCM_{scan_date}_{base_name}.tar'
 
 dicom_log = log.make(args.source, archive_path, tarball_md5_sum, zipball_md5_sum)
 

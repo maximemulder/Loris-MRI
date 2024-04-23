@@ -1,9 +1,9 @@
 from functools import reduce
-import re
 import xml.etree.ElementTree as ET
 from lib.dicom.summary_type import *
 from lib.dicom.text_dict import DictWriter
 from lib.dicom.text_table import TableWriter
+from lib.dicom.text import *
 
 def write_to_file(filename: str, summary: Summary):
     string = write_to_string(summary)
@@ -27,9 +27,9 @@ def write_info(info: Info):
         ('Unique Study ID'          , info.study_uid),
         ('Patient Name'             , info.patient.name),
         ('Patient ID'               , info.patient.id),
-        ('Patient date of birth'    , info.patient.birthdate),
+        ('Patient date of birth'    , write_date_none(info.patient.birthdate)),
         ('Patient Sex'              , info.patient.sex),
-        ('Scan Date'                , info.scan_date),
+        ('Scan Date'                , write_date_none(info.scan_date)),
         ('Scanner Manufacturer'     , info.scanner.manufacturer),
         ('Scanner Model Name'       , info.scanner.model),
         ('Scanner Serial Number'    , info.scanner.serial_number),
@@ -74,16 +74,13 @@ def write_acquis_table(acquis: list[Acquisition]):
     return '\n' + writer.write()
 
 def write_ending(summary: Summary):
-    if summary.info.patient.birthdate != None:
-        birth_match = re.match(r'(\d{4})-(\d{2})-(\d{2})', summary.info.patient.birthdate)
-        scan_match  = re.match(r'(\d{4})-(\d{2})-(\d{2})', summary.info.scan_date)
+    birth_date = summary.info.patient.birthdate
+    scan_date  = summary.info.scan_date
 
-        if birth_match == None or scan_match == None:
-            raise Exception(f'Birth date or scan date does not match date syntax. {summary.info.patient.birthdate} {summary.info.scan_date}')
-
-        years  = int(scan_match.group(1)) - int(birth_match.group(1))
-        months = int(scan_match.group(2)) - int(birth_match.group(2))
-        days   = int(scan_match.group(3)) - int(birth_match.group(3))
+    if birth_date != None:
+        years  = scan_date.year - birth_date.year
+        months = scan_date.month - birth_date.month
+        days   = scan_date.day - birth_date.month
         total  = round(years + months / 12 + days / 365.0, 2)
         age = f'{total} or {years} years, {months} months {days} days'
     else:

@@ -1,10 +1,12 @@
+from datetime import date
+
 class Patient:
     id:        str
     name:      str
     sex:       str | None
-    birthdate: str | None
+    birthdate: date | None
 
-    def __init__(self, id: str, name: str, sex: str | None, birthdate: str | None):
+    def __init__(self, id: str, name: str, sex: str | None, birthdate: date | None):
         self.id        = id
         self.name      = name
         self.sex       = sex
@@ -26,7 +28,7 @@ class Info:
     study_uid:   str
     patient:     Patient
     scanner:     Scanner
-    scan_date:   str
+    scan_date:   date | None
     institution: str | None
     modality:    str
 
@@ -34,7 +36,7 @@ class Info:
         study_uid:   str,
         patient:     Patient,
         scanner:     Scanner,
-        scan_date:   str,
+        scan_date:   date | None,
         institution: str | None,
         modality:    str,
     ):

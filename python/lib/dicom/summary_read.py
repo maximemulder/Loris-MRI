@@ -1,5 +1,3 @@
-import csv
-import re
 import xml.etree.ElementTree as ET
 from lib.dicom.summary_type import *
 from lib.dicom.text import *
@@ -47,7 +45,7 @@ def read_patient_entries(entries: dict[str, str | None]):
         read_required(entries['Patient ID']),
         read_required(entries['Patient Name']),
         entries['Patient Sex'],
-        entries['Patient date of birth'],
+        read_date_none(entries['Patient date of birth']),
     )
 
 def read_scanner_entries(entries: dict[str, str | None]):
@@ -63,7 +61,7 @@ def read_info_text(text: str):
         read_required(entries['Unique Study ID']),
         read_patient_entries(entries),
         read_scanner_entries(entries),
-        read_required(entries['Scan Date']),
+        read_date_none(entries['Scan Date']),
         entries['Institution Name'],
         read_required(entries['Modality']),
     ))

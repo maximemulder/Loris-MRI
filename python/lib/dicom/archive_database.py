@@ -4,6 +4,7 @@ from typing import Any
 from lib.database import Database
 from lib.dicom.summary import Summary, write_to_string as write_summary
 from lib.dicom.log import Log, write_to_string as write_log
+from lib.dicom.text import *
 
 def insert(db: Database, table: str, entries: dict[str, Any]):
     return db.insert(table, list(entries.keys()), [tuple(entries.values())], get_last_id=True)
@@ -13,28 +14,19 @@ def create_tarchive(
     log: Log,
     summary: Summary,
     neuro_db_center_name: str | None,
-    last_update: datetime | None,
-    date_acquired: date | None,
-    date_first_archived: datetime | None,
-    date_last_archived: datetime | None,
-    session_id: int | None,
-    upload_attempt: int,
-    tarchive_id: int,
-    date_sent: datetime | None,
-    pending_transfer: int | None,
 ):
     archive_id = insert(db, 'tarchive', {
         'DicomArchiveID': summary.info.study_uid,
         'PatientID': summary.info.patient.id,
         'PatientName': summary.info.patient.name,
-        'PatientDoB': summary.info.patient.birthdate,
+        'PatientDoB': write_date_none(summary.info.patient.birthdate),
         'PatientSex': summary.info.patient.sex,
         'neurodbCenterName': neuro_db_center_name,
         'CenterName': summary.info.institution or '',
-        'LastUpdate': last_update,
-        'DateAcquired': date_acquired,
-        'DateFirstArchived': date_first_archived,
-        'DateLastArchived': date_last_archived,
+        'LastUpdate': None,
+        'DateAcquired': write_date_none(summary.info.scan_date),
+        'DateFirstArchived': write_datetime(datetime.now()),
+        'DateLastArchived': write_datetime(datetime.now()),
         'AcquisitionCount': len(summary.acquis),
         'NonDicomFileCount': len(summary.other_files),
         'DicomFileCount': len(summary.dicom_files),
@@ -49,12 +41,12 @@ def create_tarchive(
         'ScannerModel': summary.info.scanner.model,
         'ScannerSerialNumber': summary.info.scanner.serial_number,
         'ScannerSoftwareVersion': summary.info.scanner.software_version,
-        'SessionID': session_id,
-        'uploadAttempt': upload_attempt,
+        'SessionID': None,
+        'uploadAttempt': 0,
         'CreateInfo': write_log(log),
         'AcquisitionMetadata': write_summary(summary),
-        'DateSent': date_sent,
-        'PendingTransfer': pending_transfer,
+        'DateSent': None,
+        'PendingTransfer': 0,
     })
 
     for acqui in summary.acquis:

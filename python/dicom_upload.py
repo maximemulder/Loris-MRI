@@ -28,9 +28,7 @@ archive = 'DCM_2016-08-19_ImagingUpload-18-41-C4ZlTl.tar'
 try:
     name = re.match(r'DCM_\d{4}-\d{2}-\d{2}_(.+)\.tar', archive).group(1)
     with tarfile.open(archive) as tar:
-        print('AAAA')
         tar.extract(f'{name}.meta')
-        print('BBBB')
         tar.extract(f'{name}.log')
 
     summary = summary_lib.read_from_file(f'{name}.meta')
@@ -78,13 +76,4 @@ archive_database.create_tarchive(
     log,
     summary,
     None,
-    None,
-    None,
-    None,
-    None,
-    None,
-    0,
-    0,
-    None,
-    0,
 )
