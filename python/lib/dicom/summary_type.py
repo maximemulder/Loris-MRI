@@ -49,29 +49,36 @@ class Info:
 
 class File:
     series_number:      int | None
+    series_uid:         str | None
+    series_description: str | None
     file_number:        int | None
     echo_number:        int | None
-    series_description: str | None
+    echo_time:          float | None
     md5_sum:            str
     file_name:          str
 
     def __init__(self,
         series_number:      int | None,
+        series_uid:         str | None,
+        series_description: str | None,
         file_number:        int | None,
         echo_number:        int | None,
-        series_description: str | None,
+        echo_time:          int | None,
         md5_sum:            str,
         file_name:          str,
     ):
         self.series_number      = series_number
+        self.series_uid         = series_uid
+        self.series_description = series_description
         self.file_number        = file_number
         self.echo_number        = echo_number
-        self.series_description = series_description
+        self.echo_time          = echo_time
         self.md5_sum            = md5_sum
         self.file_name          = file_name
 
 class Acquisition:
     series_number:      int
+    series_uid:         str | None
     series_description: str | None
     sequence_name:      str | None
     echo_time:          float | None # In Milliseconds
@@ -80,11 +87,11 @@ class Acquisition:
     slice_thickness:    float | None # In Millimeters
     phase_encoding:     str | None
     number_of_files:    int
-    series_uid:         str | None
     modality:           str | None
 
     def __init__(self,
         series_number:      int,
+        series_uid:         str | None,
         series_description: str | None,
         sequence_name:      str | None,
         echo_time:          float | None,
@@ -93,10 +100,10 @@ class Acquisition:
         slice_thickness:    float | None,
         phase_encoding:     str | None,
         number_of_files:    int,
-        series_uid:         str | None,
         modality:           str | None,
     ):
         self.series_number      = series_number
+        self.series_uid         = series_uid
         self.series_description = series_description
         self.sequence_name      = sequence_name
         self.echo_time          = echo_time
@@ -105,7 +112,6 @@ class Acquisition:
         self.slice_thickness    = slice_thickness
         self.phase_encoding     = phase_encoding
         self.number_of_files    = number_of_files
-        self.series_uid         = series_uid
         self.modality           = modality
 
 class Summary:

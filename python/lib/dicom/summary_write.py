@@ -77,10 +77,10 @@ def write_ending(summary: Summary):
     birth_date = summary.info.patient.birthdate
     scan_date  = summary.info.scan_date
 
-    if birth_date != None:
-        years  = scan_date.year - birth_date.year
+    if birth_date and scan_date:
+        years  = scan_date.year  - birth_date.year
         months = scan_date.month - birth_date.month
-        days   = scan_date.day - birth_date.month
+        days   = scan_date.day   - birth_date.day
         total  = round(years + months / 12 + days / 365.0, 2)
         age = f'{total} or {years} years, {months} months {days} days'
     else:

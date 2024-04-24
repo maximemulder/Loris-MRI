@@ -1,96 +1,138 @@
+#!/usr/bin/env python
+
 import argparse
-import gzip
 import hashlib
 import os
-import shutil
-import tarfile
+import sys
 
-from lib.dicom import summary
-from lib.dicom import log
-from lib.dicom.text import *
+from lib.database import Database
+import lib.dicom.dicom_tar
+from lib.dicom import dicom_database
+import lib.exitcode
 
-parser = argparse.ArgumentParser(description=
-    'Archive a DICOM directory.')
+def exit_error(message: str, code: int):
+    print(f'ERROR: {message}', file=sys.stderr)
+    sys.exit(code)
+
+# Modified version of 'lorisgetopt.load_config_file'.
+# We use argparse to parse the command line options in this script,
+# but still use this function to configure the database.
+# NOTE: We may want to use a more modern database library in the future.
+def load_config_file(profile_path: str):
+    """
+    Loads the config file based on the value provided by the option '--profile' when
+    running the script. If the config file cannot be loaded, the script will exit
+    with a proper error message.
+    """
+
+    if "LORIS_CONFIG" not in os.environ.keys():
+        exit_error(
+            'Environment variable \'LORIS_CONFIG\' not set',
+            lib.exitcode.INVALID_ENVIRONMENT_VAR,
+        )
+
+    config_file = os.path.join(os.environ["LORIS_CONFIG"], ".loris_mri", profile_path)
+
+    if not config_file.endswith(".py"):
+        exit_error(
+            (
+                f'\'{config_file}\' does not appear to be the python configuration file.'
+                f' Try using \'database_config.py\' instead.'
+            ),
+            lib.exitcode.INVALID_ARG,
+        )
+
+    if not os.path.isfile(config_file):
+        exit_error(
+            f'\'{profile_path}\' does not exist in \'{os.environ["LORIS_CONFIG"]}\'.',
+            lib.exitcode.INVALID_PATH,
+        )
+
+    sys.path.append(os.path.dirname(config_file))
+    return __import__(os.path.basename(config_file[:-3]))
+
+parser = argparse.ArgumentParser(description=(
+        'Read a DICOM directory, process it into a structured and compressed archive, '
+        'and insert it or upload it to the LORIS database.'
+    ))
+
+parser.add_argument('--profile',
+    action='store',
+    required=True,
+    help='The database profile file (usually \'database_config.py\')')
+
+parser.add_argument('--verbose',
+    action='store_true',
+    help='Set the script to be verbose')
+
+parser.add_argument('--today',
+    action='store_true',
+    help='Use today\'s date for the archive name instead of using the scan date')
+
+parser.add_argument('--year',
+    action='store_true',
+    help='Create the archive in a year subdirectory')
+
+parser.add_argument('--insert',
+    action='store_true',
+    help=(
+        'Insert the created dicom archive in the database (requires the archive '
+        'to not be already inserted)'))
+
+parser.add_argument('--update',
+    action='store_true',
+    help=(
+        'Update the dicom archive in the database (requires the archive to be '
+        'already be inserted)'))
 
 parser.add_argument('source',
     help='The source DICOM directory')
 
 parser.add_argument('target',
-    help='The target directory in which the archive should be placed')
-
-parser.add_argument('-verbose',
-    action='store_true',
-    help='Display verbose information')
+    help='The target directory for the DICOM archive')
 
 args = parser.parse_args()
+
+db = Database(load_config_file(args.profile).mysql, False)
+db.connect()
+
+if args.insert and args.update:
+    exit_error(
+        'Arguments \'--insert\' and \'--update\' must not both be set at the same time',
+        lib.exitcode.INVALID_ARG,
+    )
+
+summary, log = lib.dicom.dicom_tar.run(args.source, args.target, args.verbose, args.today, args.year)
 
 def print_verbose(message: str):
     if args.verbose:
         print(message)
 
-# Remove trailing slashes
-while args.source.endswith('/'):
-    args.source = args.source[:-1]
-
-base_name = os.path.basename(args.source)
-
-tar_path     = f'{args.target}/{base_name}.tar'
-zip_path     = f'{args.target}/{base_name}.tar.gz'
-summary_path = f'{args.target}/{base_name}.meta'
-log_path     = f'{args.target}/{base_name}.log'
-
-print_verbose('Extracting DICOM information (may take a long time)')
-
-dicom_summary = summary.make(args.source)
-
-print_verbose('Copying into DICOM tar')
-
-with tarfile.open(tar_path, 'w') as tar:
-    for file in os.listdir(args.source):
-        tar.add(args.source + '/' + file)
-
-with open(tar_path, 'rb') as tar:
+with open(log.target_path, 'rb') as tar:
     print_verbose('Calculating DICOM tar MD5 sum')
 
-    tarball_md5_sum = hashlib.md5(tar.read()).hexdigest()
-    tar.seek(0)
+    log.archive_md5_sum = hashlib.md5(tar.read()).hexdigest()
 
-    print_verbose('Zipping DICOM tar (may take a long time)')
+if args.insert:
+    archive = dicom_database.get_archive_with_study_uid(db, summary.info.study_uid)
+    if archive != None:
+        exit_error(
+            (
+                f'Study \'{summary.info.study_uid}\' is already inserted in the database\n'
+                f'Previous insertion log:\n'
+                f'{archive[1]}'
+            ),
+            lib.exitcode.INSERT_FAILURE,
+        )
 
-    with gzip.open(zip_path, 'wb') as zip:
-        shutil.copyfileobj(tar, zip)
+    dicom_database.insert(db, log, summary)
 
-print_verbose('Calculating DICOM zip MD5 sum')
-
-with open(zip_path, 'rb') as zip:
-    zipball_md5_sum = hashlib.md5(zip.read()).hexdigest()
-
-scan_date = write_date(dicom_summary.info.scan_date)
-
-archive_path = f'{args.target}/DCM_{scan_date}_{base_name}.tar'
-
-dicom_log = log.make(args.source, archive_path, tarball_md5_sum, zipball_md5_sum)
-
-print_verbose('Writing summary file')
-
-summary.write_to_file(summary_path, dicom_summary)
-
-print_verbose('Writing log file')
-
-log.write_to_file(log_path, dicom_log)
-
-print_verbose('Copying into DICOM archive')
-
-with tarfile.open(archive_path, 'w') as tar:
-    tar.add(zip_path,     os.path.basename(zip_path))
-    tar.add(summary_path, os.path.basename(summary_path))
-    tar.add(log_path,     os.path.basename(log_path))
-
-print_verbose('Removing temporary files')
-
-os.remove(tar_path)
-os.remove(zip_path)
-os.remove(summary_path)
-os.remove(log_path)
-
-print('Success')
+if args.update:
+    archive = dicom_database.get_archive_with_study_uid(db, summary.info.study_uid)
+    if archive == None:
+        exit_error(
+            f'No study \'{summary.info.study_uid}\' found in the database',
+            lib.exitcode.UPDATE_FAILURE,
+        )
+    else:
+        dicom_database.update(db, archive[0], log, summary)

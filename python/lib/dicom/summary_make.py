@@ -82,9 +82,6 @@ def make_summary(dir_path: str):
 
     for file_name in os.listdir(dir_path):
         dicom = pydicom.dcmread(dir_path + '/' + file_name)
-        '''import pprint
-        pprint.pprint(dicom)
-        exit(0)'''
         if info == None:
             info = make_info(dicom)
 
@@ -142,9 +139,11 @@ def make_file(dicom: pydicom.Dataset):
 
     return File(
         get_value_none(dicom, 'SeriesNumber'),
+        get_value_none(dicom, 'SeriesInstanceUID'),
+        get_value_none(dicom, 'SeriesDescription'),
         get_value_none(dicom, 'InstanceNumber'),
         get_value_none(dicom, 'EchoNumbers'),
-        get_value_none(dicom, 'SeriesDescription'),
+        get_value_none(dicom, 'EchoTime'),
         md5_sum,
         os.path.basename(dicom.filename),
     )
@@ -152,6 +151,7 @@ def make_file(dicom: pydicom.Dataset):
 def make_acqui(dicom: pydicom.Dataset):
     return Acquisition(
         get_value(dicom, 'SeriesNumber'),
+        get_value_none(dicom, 'SeriesInstanceUID'),
         get_value_none(dicom, 'SeriesDescription'),
         get_value_none(dicom, 'SequenceName'),
         get_value_none(dicom, 'EchoTime'),
@@ -160,6 +160,5 @@ def make_acqui(dicom: pydicom.Dataset):
         get_value_none(dicom, 'SliceThickness'),
         get_value_none(dicom, 'InPlanePhaseEncodingDirection'),
         0,
-        get_value_none(dicom, 'SeriesInstanceUID'),
         get_value_none(dicom, 'Modality'),
     )
