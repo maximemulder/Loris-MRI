@@ -1,4 +1,11 @@
+"""
+A bunch of functions to convert values between (possibly empty) strings and
+different types of values.
+"""
+
 from datetime import datetime, date
+import hashlib
+import os
 
 def write_value(value: str | int | float | None):
     if value == None:
@@ -18,7 +25,7 @@ def write_date_none(date: date | None):
 
     return write_date(date)
 
-def read_string(string: str):
+def read_none(string: str):
     if string == '':
         return None
 
@@ -30,35 +37,33 @@ def read_date_none(string: str | None):
 
     return datetime.strptime(string, '%Y-%m-%d').date()
 
-def read_dicom_date(string: str | None):
+def read_dicom_date_none(string: str | None):
     if string == None:
         return None
 
     return datetime.strptime(string, '%Y%m%d').date()
 
-# TODO: Change read aproach: empty string by default, with nullable as an add-on
-
-def read_required(text: str | None):
-    if text == None:
-        return ''
-        raise Exception(f'Expected value string but found empty string.')
-
-    return text
-
-def read_int(text: str | None):
-    if text == None:
+def read_int_none(string: str | None):
+    if string == None:
         return None
 
-    return int(text)
+    return int(string)
 
-def read_float(text: str | None):
-    if text == None:
+def read_float_none(string: str | None):
+    if string == None:
         return None
 
-    return float(text)
+    return float(string)
 
-def null(text: str):
-    if text == '':
-        return None
+def make_hash(path: str, with_name: bool = False):
+    """
+    Get the MD5 sum hash of a file, with or without the filename appended.
+    """
 
-    return text
+    with open(path, 'rb') as file:
+        hash = hashlib.md5(file.read()).hexdigest()
+
+    if with_name:
+        hash = f'{hash}   {os.path.basename(path)}'
+
+    return hash

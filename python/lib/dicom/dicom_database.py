@@ -1,23 +1,79 @@
-from datetime import date, datetime
+from datetime import datetime
 from typing import Any
 
 from lib.database import Database
-from lib.dicom.summary import Summary, write_to_string as write_summary
-from lib.dicom.dicom_log import Log, write_to_string as write_log
+from lib.dicom.summary_type import Summary
+from lib.dicom.dicom_log import Log
 from lib.dicom.text import *
+import lib.dicom.summary_write
+import lib.dicom.dicom_log
 
-def insert_dict(db: Database, table: str, entries: dict[str, Any]):
-    return db.insert(table, list(entries.keys()), [tuple(entries.values())], get_last_id=True)
+def insert_dict(db: Database, table: str, attrs: dict[str, Any]):
+    """
+    Insert a record in a table, using a dictionary to specify the attributes of
+    the record.
 
-def update_dict(db: Database, table: str, entries: dict[str, Any], conds: dict[str, Any]):
-    query_values = map(lambda key: f'{key} = %s', entries.keys())
-    query_conds  = map(lambda key: f'{key} = %s', conds.keys())
+    :param db: The database.
+    :param table: The table name.
+    :param attrs: A dictionary mapping field names to their values in the \
+        record to be inserted.
 
-    query = f'UPDATE {table} SET {", ".join(query_values)} WHERE {" AND ".join(query_conds)}'
+    :returns: The ID of the inserted record.
+    """
 
-    db.update(query, [*entries.values(), *conds.values()])
+    # NOTE: This should always return an ID, the `or` is for the type checker.
+    return db.insert(table, list(attrs.keys()), [tuple(attrs.values())], get_last_id=True) or 0
+
+def update_dict(db: Database, table: str, conds: dict[str, Any], attrs: dict[str, Any]):
+    """
+    Update some records in a database table, using dictionaries to specify the
+    attributes to update and the conditions needed to update a record.
+
+    :param db: The database.
+    :param table: The table name.
+    :param conds: A dictionary mapping field names to their current values to \
+        determine the records to be updated. \
+        Other forms of conditions are not supported by this function.
+    :param attrs: A dictionary mapping field names to their updated values in \
+        the record to be updated.
+    """
+
+    query_conds = map(lambda key: f'{key} = %s', conds.keys())
+    query_attrs = map(lambda key: f'{key} = %s', attrs.keys())
+    query = f'UPDATE {table} SET {", ".join(query_attrs)} WHERE {" AND ".join(query_conds)}'
+    db.update(query, [*attrs.values(), *conds.values()])
+
+def delete_dict(db: Database, table: str, conds: dict[str, Any]):
+    """
+    Delete some records in a database table, using a dictionary to specify the
+    conditions needed to update a record.
+
+    :param db: The database.
+    :param table: The table name.
+    :param conds: A dictionary mapping field names to their current values to \
+        determine the records to be deleted. \
+        Other forms of conditions are not supported by this function.
+    """
+
+    query_conds = map(lambda key: f'{key} = %s', conds.keys())
+    query = f'DELETE FROM {table} WHERE {" AND ".join(query_conds)}'
+
+    # NOTE: `Database.update` can be used for any query currently. Since the
+    # current database abstraction is a little rudimentary, we use that here.
+    db.update(query, conds.values())
 
 def get_archive_with_study_uid(db: Database, study_uid: str):
+    """
+    Get the archive ID and archiving log of an existing DICOM archive in the
+    database if there is one.
+
+    :param db: The database.
+    :param study_uid: The DICOM archive study uID.
+
+    :returns: A tuple containing the archive ID and the archiving log if an \
+        archive is found, or `None` otherwise.
+    """
+
     results = db.pselect(
         'SELECT TarchiveID, CreateInfo \
             FROM tarchive \
@@ -34,13 +90,12 @@ def get_dicom_dict(log: Log, summary: Summary):
         'DicomArchiveID': summary.info.study_uid,
         'PatientID': summary.info.patient.id,
         'PatientName': summary.info.patient.name,
-        'PatientDoB': write_date_none(summary.info.patient.birthdate),
+        'PatientDoB': write_date_none(summary.info.patient.birth_date),
         'PatientSex': summary.info.patient.sex,
         'neurodbCenterName': None,
         'CenterName': summary.info.institution or '',
         'LastUpdate': None,
         'DateAcquired': write_date_none(summary.info.scan_date),
-        'DateFirstArchived': write_datetime(datetime.now()),
         'DateLastArchived': write_datetime(datetime.now()),
         'AcquisitionCount': len(summary.acquis),
         'NonDicomFileCount': len(summary.other_files),
@@ -58,17 +113,26 @@ def get_dicom_dict(log: Log, summary: Summary):
         'ScannerSoftwareVersion': summary.info.scanner.software_version,
         'SessionID': None,
         'uploadAttempt': 0,
-        'CreateInfo': write_log(log),
-        'AcquisitionMetadata': write_summary(summary),
+        'CreateInfo': lib.dicom.dicom_log.write_to_string(log),
+        'AcquisitionMetadata': lib.dicom.summary_write.write_to_string(summary),
         'DateSent': None,
         'PendingTransfer': 0,
     }
 
 def insert(db: Database, log: Log, summary: Summary):
+    """
+    Insert a DICOM archive into the database.
+
+    :param db: The database.
+    :param log: The archiving log of the DICOM archive.
+    :param summary: The summary of the DICOM archive.
+    """
     dicom_dict = get_dicom_dict(log, summary)
-
+    dicom_dict['DateFirstArchived'] = write_datetime(datetime.now()),
     archive_id = insert_dict(db, 'tarchive', dicom_dict)
+    insert_files_series(db, archive_id, summary)
 
+def insert_files_series(db: Database, archive_id: int, summary: Summary):
     for acqui in summary.acquis:
         insert_dict(db, 'tarchive_series', {
             'TarchiveID': archive_id,
@@ -106,11 +170,22 @@ def insert(db: Database, log: Log, summary: Summary):
         })
 
 def update(db: Database, archive_id: int, log: Log, summary: Summary):
-    db.update('DELETE FROM tarchive_files WHERE TarchiveID = %s', [archive_id])
-    db.update('DELETE FROM tarchive_series WHERE TarchiveID = %s', [archive_id])
+    """
+    Insert a DICOM archive into the database.
 
+    :param db: The database.
+    :param archive_id: The ID of the archive to update.
+    :param log: The archiving log of the DICOM archive.
+    :param summary: The summary of the DICOM archive.
+    """
+
+    # Delete the associated database DICOM files and series.
+    delete_dict(db, 'tarchive_files',  { 'TarchiveID': archive_id })
+    delete_dict(db, 'tarchive_series', { 'TarchiveID': archive_id })
+
+    # Update the database record with the new DICOM information.
     dicom_dict = get_dicom_dict(log, summary)
+    update_dict(db, 'tarchive', { 'TarchiveID': archive_id }, dicom_dict)
 
-    update_dict(db, 'tarchive', dicom_dict, {
-        'TarchiveID': archive_id,
-    })
+    # Insert the new DICOM files and series.
+    insert_files_series(db, archive_id, summary)

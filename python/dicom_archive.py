@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 
 import argparse
-import hashlib
 import os
 import sys
 
 from lib.database import Database
 import lib.dicom.dicom_tar
-from lib.dicom import dicom_database
+import lib.dicom.dicom_database
+import lib.dicom.text
 import lib.exitcode
 
 def exit_error(message: str, code: int):
@@ -20,7 +20,7 @@ def exit_error(message: str, code: int):
 # NOTE: We may want to use a more modern database library in the future.
 def load_config_file(profile_path: str):
     """
-    Loads the config file based on the value provided by the option '--profile' when
+    Load the config file based on the value provided by the option '--profile' when
     running the script. If the config file cannot be loaded, the script will exit
     with a proper error message.
     """
@@ -108,31 +108,32 @@ def print_verbose(message: str):
     if args.verbose:
         print(message)
 
-with open(log.target_path, 'rb') as tar:
-    print_verbose('Calculating DICOM tar MD5 sum')
+print_verbose('Calculating DICOM tar MD5 sum')
 
-    log.archive_md5_sum = hashlib.md5(tar.read()).hexdigest()
+log.archive_md5_sum = lib.dicom.text.make_hash(log.target_path, True)
 
 if args.insert:
-    archive = dicom_database.get_archive_with_study_uid(db, summary.info.study_uid)
+    archive = lib.dicom.dicom_database.get_archive_with_study_uid(db, summary.info.study_uid)
     if archive != None:
         exit_error(
             (
                 f'Study \'{summary.info.study_uid}\' is already inserted in the database\n'
-                f'Previous insertion log:\n'
+                'Previous archiving log:\n'
                 f'{archive[1]}'
             ),
             lib.exitcode.INSERT_FAILURE,
         )
 
-    dicom_database.insert(db, log, summary)
+    lib.dicom.dicom_database.insert(db, log, summary)
 
 if args.update:
-    archive = dicom_database.get_archive_with_study_uid(db, summary.info.study_uid)
+    archive = lib.dicom.dicom_database.get_archive_with_study_uid(db, summary.info.study_uid)
     if archive == None:
         exit_error(
             f'No study \'{summary.info.study_uid}\' found in the database',
             lib.exitcode.UPDATE_FAILURE,
         )
+
+    # NOTE: The type checker is currently not smart enough to work without this `else`
     else:
-        dicom_database.update(db, archive[0], log, summary)
+        lib.dicom.dicom_database.update(db, archive[0], log, summary)

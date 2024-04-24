@@ -1,18 +1,26 @@
 from datetime import date
 
 class Patient:
+    """
+    DICOM patient object, which contains information about a DICOM patient.
+    """
+
     id:        str
     name:      str
     sex:       str | None
-    birthdate: date | None
+    birth_date: date | None
 
-    def __init__(self, id: str, name: str, sex: str | None, birthdate: date | None):
-        self.id        = id
-        self.name      = name
-        self.sex       = sex
-        self.birthdate = birthdate
+    def __init__(self, id: str, name: str, sex: str | None, birth_date: date | None):
+        self.id         = id
+        self.name       = name
+        self.sex        = sex
+        self.birth_date = birth_date
 
 class Scanner:
+    """
+    DICOM scanner object, which contains information about a DICOM scanner.
+    """
+
     manufacturer:     str
     model:            str
     serial_number:    str
@@ -25,6 +33,11 @@ class Scanner:
         self.software_version = software_version
 
 class Info:
+    """
+    General DICOM information object, which contains general information about
+    a DICOM directory.
+    """
+
     study_uid:   str
     patient:     Patient
     scanner:     Scanner
@@ -47,36 +60,58 @@ class Info:
         self.institution = institution
         self.modality    = modality
 
-class File:
+class DicomFile:
+    """
+    DICOM file object, which contains information about a DICOM file inside a
+    DICOM directory.
+    """
+
+    file_name:          str
+    md5_sum:            str
     series_number:      int | None
     series_uid:         str | None
     series_description: str | None
     file_number:        int | None
     echo_number:        int | None
     echo_time:          float | None
-    md5_sum:            str
-    file_name:          str
 
     def __init__(self,
+        file_name:          str,
+        md5_sum:            str,
         series_number:      int | None,
         series_uid:         str | None,
         series_description: str | None,
         file_number:        int | None,
         echo_number:        int | None,
-        echo_time:          int | None,
-        md5_sum:            str,
-        file_name:          str,
+        echo_time:          float | None,
     ):
+        self.file_name          = file_name
+        self.md5_sum            = md5_sum
         self.series_number      = series_number
         self.series_uid         = series_uid
         self.series_description = series_description
         self.file_number        = file_number
         self.echo_number        = echo_number
         self.echo_time          = echo_time
-        self.md5_sum            = md5_sum
-        self.file_name          = file_name
+
+class OtherFile:
+    """
+    Non-DICOM file object, which contains information about a non-DICOM file
+    inside a DICOM directory.
+    """
+
+    file_name: str
+    md5_sum:   str
+
+    def __init__(self, file_name: str, md5_sum: str):
+        self.file_name = file_name
+        self.md5_sum   = md5_sum
 
 class Acquisition:
+    """
+    DICOM acquisition object, which contains information about a DICOM series.
+    """
+
     series_number:      int
     series_uid:         str | None
     series_description: str | None
@@ -115,16 +150,20 @@ class Acquisition:
         self.modality           = modality
 
 class Summary:
+    """
+    DICOM summary object, which contains information about a DICOM directory.
+    """
+
     info: Info
     acquis: list[Acquisition]
-    dicom_files: list[File]
-    other_files: list[None]
+    dicom_files: list[DicomFile]
+    other_files: list[OtherFile]
 
     def __init__(self,
         info: Info,
         acquis: list[Acquisition],
-        dicom_files: list[File],
-        other_files: list[None],
+        dicom_files: list[DicomFile],
+        other_files: list[OtherFile],
     ):
         self.info         = info
         self.acquis       = acquis

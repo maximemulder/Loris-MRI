@@ -18,75 +18,94 @@ def get_xml_child(element: ET.Element, tag: str):
 
     return element
 
-def read_from_file(filename: str):
-    return read_summary_xml(ET.parse(filename).getroot())
+def read_from_file(file_path: str):
+    """
+    Create a DICOM summary object from a text file.
+    """
+    return read_summary_xml(ET.parse(file_path).getroot())
 
 def read_from_string(string: str):
+    """
+    Create a DICOM summary object from a string.
+    """
     return read_summary_xml(ET.fromstring(string))
 
 def read_summary_xml(study: ET.Element):
     check_tag(study, 'STUDY')
-    info   = study[0]
-    files  = study[1]
-    acquis = study[2]
 
-    check_tag(info, 'STUDY_INFO')
-    check_tag(files, 'FILES')
-    check_tag(acquis, 'ACQUISITIONS')
+    info        = study[0]
+    dicom_files = study[1]
+    other_files = study[2]
+    acquis      = study[3]
 
-    info   = read_info_text(info.text or '')
-    files  = read_files_table(files.text or '')
-    acquis = read_acquis_table(acquis.text or '')
+    check_tag(info,        'STUDY_INFO')
+    check_tag(dicom_files, 'FILES')
+    check_tag(other_files, 'OTHERS')
+    check_tag(acquis,      'ACQUISITIONS')
 
-    return Summary(info, acquis, files, [])
+    info        = read_info_text(info.text or '')
+    dicom_files = read_dicom_files_table(dicom_files.text or '')
+    other_files = read_other_files_table(other_files.text or '')
+    acquis      = read_acquis_table(acquis.text or '')
 
-def read_patient_entries(entries: dict[str, str | None]):
+    return Summary(info, acquis, dicom_files, other_files)
+
+def read_patient_entries(entries: dict[str, str]):
     return Patient(
-        read_required(entries['Patient ID']),
-        read_required(entries['Patient Name']),
-        entries['Patient Sex'],
-        read_date_none(entries['Patient date of birth']),
+        entries['Patient ID'],
+        entries['Patient Name'],
+        read_none(entries['Patient Sex']),
+        read_date_none(read_none(entries['Patient date of birth'])),
     )
 
-def read_scanner_entries(entries: dict[str, str | None]):
+def read_scanner_entries(entries: dict[str, str]):
     return Scanner(
-        read_required(entries['Scanner Manufacturer']),
-        read_required(entries['Scanner Model Name']),
-        read_required(entries['Scanner Serial Number']),
-        read_required(entries['Scanner Software Version']),
+        entries['Scanner Manufacturer'],
+        entries['Scanner Model Name'],
+        entries['Scanner Serial Number'],
+        entries['Scanner Software Version'],
     )
 
 def read_info_text(text: str):
-    return DictReader(text).read(lambda entries: Info(
-        read_required(entries['Unique Study ID']),
+    entries = DictReader(text).read()
+    return Info(
+        entries['Unique Study ID'],
         read_patient_entries(entries),
         read_scanner_entries(entries),
         read_date_none(entries['Scan Date']),
-        entries['Institution Name'],
-        read_required(entries['Modality']),
+        read_none(entries['Institution Name']),
+        entries['Modality'],
+    )
+
+def read_dicom_files_table(text: str):
+    return TableReader(text).read(lambda row: DicomFile(
+        row[5],
+        row[4],
+        read_int_none(read_none(row[0])),
+        None,
+        read_none(row[3]),
+        read_int_none(read_none(row[1])),
+        read_int_none(read_none(row[2])),
+        None,
     ))
 
-def read_files_table(text: str):
-    return TableReader(text).read(lambda row: File(
-        read_int(row[0]),
-        read_int(row[1]),
-        read_int(row[2]),
-        row[3],
-        read_required(row[4]),
-        read_required(row[5]),
+def read_other_files_table(text: str):
+    return TableReader(text).read(lambda row: OtherFile(
+        row[1],
+        row[0],
     ))
 
 def read_acquis_table(text: str):
     return TableReader(text).read(lambda row: Acquisition(
-        int(read_required(row[0])),
-        row[1],
-        row[2],
-        read_float(row[3]),
-        read_float(row[4]),
-        read_float(row[5]),
-        read_float(row[6]),
-        row[7],
-        read_int(row[8]) or 0, # TODO
-        row[9],
-        row[10],
+        int(row[0]),
+        read_none(row[9]),
+        read_none(row[1]),
+        read_none(row[2]),
+        read_float_none(read_none(row[3])),
+        read_float_none(read_none(row[4])),
+        read_float_none(read_none(row[5])),
+        read_float_none(read_none(row[6])),
+        read_none(row[7]),
+        int(row[8]),
+        read_none(row[10]),
     ))

@@ -1,12 +1,12 @@
 import gzip
-import hashlib
 import os
 import shutil
 import tarfile
 
-from lib.dicom import summary
-from lib.dicom import dicom_log
 from lib.dicom.text import *
+import lib.dicom.summary_make
+import lib.dicom.summary_write
+import lib.dicom.dicom_log
 
 def run(source: str, target: str, verbose: bool, today: bool, year: bool):
     """
@@ -31,7 +31,7 @@ def run(source: str, target: str, verbose: bool, today: bool, year: bool):
 
     print_verbose('Extracting DICOM information (may take a long time)')
 
-    dicom_summary = summary.make(source)
+    summary = lib.dicom.summary_make.make(source)
 
     print_verbose('Copying into DICOM tar')
 
@@ -39,12 +39,11 @@ def run(source: str, target: str, verbose: bool, today: bool, year: bool):
         for file in os.listdir(source):
             tar.add(source + '/' + file)
 
+    print_verbose('Calculating DICOM tar MD5 sum')
+
+    tarball_md5_sum = make_hash(tar_path, True)
+
     with open(tar_path, 'rb') as tar:
-        print_verbose('Calculating DICOM tar MD5 sum')
-
-        tarball_md5_sum = hashlib.md5(tar.read()).hexdigest()
-        tar.seek(0)
-
         print_verbose('Zipping DICOM tar (may take a long time)')
 
         with gzip.open(zip_path, 'wb') as zip:
@@ -52,10 +51,9 @@ def run(source: str, target: str, verbose: bool, today: bool, year: bool):
 
     print_verbose('Calculating DICOM zip MD5 sum')
 
-    with open(zip_path, 'rb') as zip:
-        zipball_md5_sum = hashlib.md5(zip.read()).hexdigest()
+    zipball_md5_sum = make_hash(zip_path, True)
 
-    scan_date = date.today() if today else dicom_summary.info.scan_date
+    scan_date = date.today() if today else summary.info.scan_date
 
     if year and scan_date:
         if not os.path.exists(f'{target}/{scan_date.year}'):
@@ -67,15 +65,15 @@ def run(source: str, target: str, verbose: bool, today: bool, year: bool):
         scan_date_string = write_date_none(scan_date) or ''
         archive_path = f'{target}/DCM_{scan_date_string}_{base_name}.tar'
 
-    log = dicom_log.make(source, archive_path, tarball_md5_sum, zipball_md5_sum)
+    log = lib.dicom.dicom_log.make(source, archive_path, tarball_md5_sum, zipball_md5_sum)
 
     print_verbose('Writing summary file')
 
-    summary.write_to_file(summary_path, dicom_summary)
+    lib.dicom.summary_write.write_to_file(summary_path, summary)
 
     print_verbose('Writing log file')
 
-    dicom_log.write_to_file(log_path, log)
+    lib.dicom.dicom_log.write_to_file(log_path, log)
 
     print_verbose('Copying into DICOM archive')
 
@@ -93,4 +91,4 @@ def run(source: str, target: str, verbose: bool, today: bool, year: bool):
 
     print('Success')
 
-    return dicom_summary, log
+    return summary, log

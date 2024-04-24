@@ -1,10 +1,14 @@
 from datetime import datetime
 import os
-import re
 import socket
 from lib.dicom.text_dict import *
 
 class Log:
+    """
+    DICOM archiving log object, containg information about the archiving of a
+    DICOM directory.
+    """
+
     source_path:     str
     target_path:     str
     creator_host:    str
@@ -43,7 +47,11 @@ class Log:
         self.archive_md5_sum = archive_md5_sum
 
 def read_from_string(string: str):
-    return DictReader(string).read(lambda entries: Log(
+    """
+    Create a DICOM archiving log object from a string.
+    """
+    entries = DictReader(string).read()
+    return Log(
         entries['Taken from dir'],
         entries['Archive target location'],
         entries['Name of creating host'],
@@ -55,35 +63,48 @@ def read_from_string(string: str):
         entries['md5sum for DICOM tarball'],
         entries['md5sum for DICOM tarball gzipped'],
         entries['md5sum for complete archive'],
-    ))
+    )
 
-def read_from_file(filename: str):
-    with open(filename) as file:
+def read_from_file(file_path: str):
+    """
+    Create a DICOM archiving log object from a text file.
+    """
+    with open(file_path) as file:
         string = file.read()
 
     return read_from_string(string)
 
 def write_to_string(log: Log):
-    return f"""\
-* Taken from dir                   :    {log.source_path}
-* Archive target location          :    {log.target_path}
-* Name of creating host            :    {log.creator_host}
-* Name of host OS                  :    {log.creator_os}
-* Created by user                  :    {log.creator_name}
-* Archived on                      :    {log.archive_date}
-* dicomSummary version             :    {log.summary_version}
-* dicomTar version                 :    {log.archive_version}
-* md5sum for DICOM tarball         :    {log.tarball_md5_sum}
-* md5sum for DICOM tarball gzipped :    {log.zipball_md5_sum}
-* md5sum for complete archive      :    {log.archive_md5_sum}
-"""
+    """
+    Serialize a DICOM archiving log object into a string.
+    """
+    return DictWriter([
+        ('Taken from dir'                   , log.source_path),
+        ('Archive target location'          , log.target_path),
+        ('Name of creating host'            , log.creator_host),
+        ('Name of host OS'                  , log.creator_os),
+        ('Created by user'                  , log.creator_name),
+        ('Archived on'                      , log.archive_date),
+        ('dicomSummary version'             , log.summary_version),
+        ('dicomTar version'                 , log.archive_version),
+        ('md5sum for DICOM tarball'         , log.tarball_md5_sum),
+        ('md5sum for DICOM tarball gzipped' , log.zipball_md5_sum),
+        ('md5sum for complete archive'      , log.archive_md5_sum),
+    ]).write()
 
-def write_to_file(filename: str, log: Log):
+def write_to_file(file_path: str, log: Log):
+    """
+    Serialize a DICOM archiving log object into a text file.
+    """
     string = write_to_string(log)
-    with open(filename, 'w') as file:
+    with open(file_path, 'w') as file:
         file.write(string)
 
 def make(source: str, target: str, tarball_md5_sum: str, zipball_md5_sum: str):
+    """
+    Create a DICOM archiving log object from the provided arguments on a DICOM
+    directory, as well as the current execution environment.
+    """
     return Log(
         source,
         target,

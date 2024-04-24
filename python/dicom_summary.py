@@ -4,10 +4,14 @@ import argparse
 import sys
 import traceback
 
-from lib.dicom import summary
+import lib.dicom.summary_make
+import lib.dicom.summary_write
+import lib.exitcode
 
-parser = argparse.ArgumentParser(description=
-    'Generate and print the summary of a DICOM directory in the console.')
+parser = argparse.ArgumentParser(description=(
+        'Read a DICOM directory and print the DICOM summary of this directory '
+        'in the the console.'
+    ))
 
 parser.add_argument('directory',
     help='The DICOM directory')
@@ -15,12 +19,12 @@ parser.add_argument('directory',
 args = parser.parse_args()
 
 try:
-    dicom = summary.make(args.directory)
+    summary = lib.dicom.summary_make.make(args.directory)
 except Exception as e:
     print(f'ERROR: Cannot create a summary for the directory \'{args.directory}\'.', file=sys.stderr)
     print('Exception message:', file=sys.stderr)
     print(e, file=sys.stderr)
     traceback.print_exc(file=sys.stderr)
-    exit(-1)
+    exit(lib.exitcode.INVALID_DICOM)
 
-print(summary.write_to_string(dicom))
+print(lib.dicom.summary_write.write_to_string(summary))
