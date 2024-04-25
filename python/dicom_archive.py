@@ -17,7 +17,6 @@ def exit_error(message: str, code: int):
 # Modified version of 'lorisgetopt.load_config_file'.
 # We use argparse to parse the command line options in this script,
 # but still use this function to configure the database.
-# NOTE: We may want to use a more modern database library in the future.
 def load_config_file(profile_path: str):
     """
     Load the config file based on the value provided by the option '--profile' when
