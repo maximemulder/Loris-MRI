@@ -1,5 +1,3 @@
-import io
-import re
 from lib.dicom.text import *
 
 class DictWriter:
@@ -41,31 +39,3 @@ class DictWriter:
         )
 
         return ''.join(entries)
-
-class DictReader:
-    """
-    Reader for a text dictionary, i.e, a text of the form:
-
-    Key 1 : Value 1
-    Key 2 : Value 2
-    ...
-    """
-
-    def __init__(self, text: str):
-        self.reader = io.StringIO(text.strip())
-
-    def read(self):
-        """
-        Parse the text dictionary, returning a dictionary containing each keys
-        and values.
-        """
-
-        entries: dict[str, str] = {}
-        for line in self.reader.readlines():
-            groups = re.match(r'\* (\w(?: *\w+)*) *: *(.*)', line)
-            if not groups:
-                raise Exception(f'Cannot parse the text following dictionnary line:\n{line}')
-
-            entries[groups.group(1)] = groups.group(2).strip()
-
-        return entries

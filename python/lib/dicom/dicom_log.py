@@ -46,34 +46,6 @@ class Log:
         self.zipball_md5_sum = zipball_md5_sum
         self.archive_md5_sum = archive_md5_sum
 
-def read_from_string(string: str):
-    """
-    Create a DICOM archiving log object from a string.
-    """
-    entries = DictReader(string).read()
-    return Log(
-        entries['Taken from dir'],
-        entries['Archive target location'],
-        entries['Name of creating host'],
-        entries['Name of host OS'],
-        entries['Created by user'],
-        entries['Archived on'],
-        int(entries['dicomSummary version']),
-        int(entries['dicomTar version']),
-        entries['md5sum for DICOM tarball'],
-        entries['md5sum for DICOM tarball gzipped'],
-        entries['md5sum for complete archive'],
-    )
-
-def read_from_file(file_path: str):
-    """
-    Create a DICOM archiving log object from a text file.
-    """
-    with open(file_path) as file:
-        string = file.read()
-
-    return read_from_string(string)
-
 def write_to_string(log: Log):
     """
     Serialize a DICOM archiving log object into a string.

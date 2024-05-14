@@ -1,7 +1,4 @@
-import csv
-from typing import Callable, TypeVar
 from lib.dicom.text import *
-
 
 class TableWriter:
     """
@@ -52,30 +49,3 @@ class TableWriter:
         rows = map(lambda row: ' | '.join(row).rstrip() + '\n', rows)
 
         return ''.join(rows)
-
-def read_row(row: list[str]) -> list[str]:
-    return list(map(lambda cell: cell.strip(), row))
-
-class TableReader:
-    """
-    Reader for a text table, i.e, a table of the form:
-
-    Field 1 | Field 2 | Field 3
-    Value 1 | Value 2 | Value 3
-    Value 4 | Value 5 | Value 6
-    ...
-    """
-
-    def __init__(self, text: str):
-        self.reader = csv.reader(text.strip().splitlines(), delimiter='|')
-
-    T = TypeVar('T')
-    def read(self, mapper: Callable[[list[str]], T]) -> list[T]:
-        """
-        Parse a text table, returning a list containing each row transformed
-        by the mapper function.
-        """
-
-        # Skip table header
-        next(self.reader)
-        return list(map(lambda row: mapper(read_row(row)), self.reader))

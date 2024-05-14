@@ -8,6 +8,25 @@ from lib.dicom.text import *
 import lib.dicom.summary_write
 import lib.dicom.dicom_log
 
+def select_dict(db: Database, fields: list[str], table: str, conds: dict[str, Any]):
+    """
+    Select a record in a table, using a dictionary to specify the conditions \
+    needed to update a record.
+
+    :param db: The database.
+    :param fields: A list of field names to retrieve.
+    :param table: The table name.
+    :param conds: A dictionary mapping field names to their current values to \
+        determine the records to be updated. \
+        Other forms of conditions are not supported by this function.
+
+    :returns: The list of matching records.
+    """
+
+    query_conds  = map(lambda key: key + (' = ' if key != None else ' IS ') + '%s', conds.keys())
+    query = f'SELECT {", ".join(fields)} FROM {table} WHERE {" AND ".join(query_conds)}'
+    return db.pselect(query, [*conds.values()])
+
 def insert_dict(db: Database, table: str, attrs: dict[str, Any]):
     """
     Insert a record in a table, using a dictionary to specify the attributes of
@@ -38,7 +57,7 @@ def update_dict(db: Database, table: str, conds: dict[str, Any], attrs: dict[str
         the record to be updated.
     """
 
-    query_conds = map(lambda key: f'{key} = %s', conds.keys())
+    query_conds = map(lambda key: key + (' = ' if key != None else ' IS ') + '%s', conds.keys())
     query_attrs = map(lambda key: f'{key} = %s', attrs.keys())
     query = f'UPDATE {table} SET {", ".join(query_attrs)} WHERE {" AND ".join(query_conds)}'
     db.update(query, [*attrs.values(), *conds.values()])
@@ -74,11 +93,9 @@ def get_archive_with_study_uid(db: Database, study_uid: str):
         archive is found, or `None` otherwise.
     """
 
-    results = db.pselect(
-        'SELECT TarchiveID, CreateInfo \
-            FROM tarchive \
-            WHERE DicomArchiveID = %s',
-        [study_uid])
+    results = select_dict(db, ['TarchiveID', 'CreateInfo'], 'tarchive', {
+        'DicomArchiveID': study_uid,
+    })
 
     if len(results) == 0:
         return None
@@ -150,11 +167,10 @@ def insert_files_series(db: Database, archive_id: int, summary: Summary):
         })
 
     for file in summary.dicom_files:
-        results = db.pselect(
-            'SELECT TarchiveSeriesID \
-                FROM tarchive_series \
-                WHERE SeriesUID = %s AND EchoTime = %s',
-            [file.series_uid, file.echo_time])
+        results = select_dict(db, ['TarchiveSeriesID'], 'tarchive_series', {
+            'SeriesUID': file.series_uid,
+            'EchoTime': file.echo_time,
+        })
 
         series_id = results[0]['TarchiveSeriesID']
 
