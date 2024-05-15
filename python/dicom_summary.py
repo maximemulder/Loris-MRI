@@ -13,7 +13,8 @@ parser = argparse.ArgumentParser(description=(
         'in the the console.'
     ))
 
-parser.add_argument('directory',
+parser.add_argument(
+    'directory',
     help='The DICOM directory')
 
 args = parser.parse_args()

@@ -1,7 +1,8 @@
 from datetime import datetime
 import os
 import socket
-from lib.dicom.text_dict import *
+from lib.dicom.text_dict import DictWriter
+
 
 class Log:
     """
@@ -21,7 +22,8 @@ class Log:
     zipball_md5_sum: str
     archive_md5_sum: str
 
-    def __init__(self,
+    def __init__(
+        self,
         source_path:     str,
         target_path:     str,
         creator_host:    str,
@@ -46,6 +48,7 @@ class Log:
         self.zipball_md5_sum = zipball_md5_sum
         self.archive_md5_sum = archive_md5_sum
 
+
 def write_to_string(log: Log):
     """
     Serialize a DICOM archiving log object into a string.
@@ -64,6 +67,7 @@ def write_to_string(log: Log):
         ('md5sum for complete archive'      , log.archive_md5_sum),
     ]).write()
 
+
 def write_to_file(file_path: str, log: Log):
     """
     Serialize a DICOM archiving log object into a text file.
@@ -71,6 +75,7 @@ def write_to_file(file_path: str, log: Log):
     string = write_to_string(log)
     with open(file_path, 'w') as file:
         file.write(string)
+
 
 def make(source: str, target: str, tarball_md5_sum: str, zipball_md5_sum: str):
     """

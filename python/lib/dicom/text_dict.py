@@ -1,4 +1,5 @@
-from lib.dicom.text import *
+from lib.dicom.text import write_value
+
 
 class DictWriter:
     """
@@ -34,8 +35,9 @@ class DictWriter:
 
         length = self.get_keys_length()
 
-        entries = map(lambda entry:
-            f'* {entry[0].ljust(length)} :   {write_value(entry[1])}\n', self.entries
+        entries = map(
+            lambda entry: f'* {entry[0].ljust(length)} :   {write_value(entry[1])}\n',
+            self.entries,
         )
 
         return ''.join(entries)

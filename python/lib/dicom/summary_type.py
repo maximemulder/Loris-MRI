@@ -1,5 +1,6 @@
 from datetime import date
 
+
 class Patient:
     """
     DICOM patient object, which contains information about a DICOM patient.
@@ -15,6 +16,7 @@ class Patient:
         self.name       = name
         self.sex        = sex
         self.birth_date = birth_date
+
 
 class Scanner:
     """
@@ -32,6 +34,7 @@ class Scanner:
         self.serial_number    = serial_number
         self.software_version = software_version
 
+
 class Info:
     """
     General DICOM information object, which contains general information about
@@ -45,7 +48,8 @@ class Info:
     institution: str | None
     modality:    str
 
-    def __init__(self,
+    def __init__(
+        self,
         study_uid:   str,
         patient:     Patient,
         scanner:     Scanner,
@@ -59,6 +63,7 @@ class Info:
         self.scan_date   = scan_date
         self.institution = institution
         self.modality    = modality
+
 
 class DicomFile:
     """
@@ -75,7 +80,8 @@ class DicomFile:
     echo_number:        int | None
     echo_time:          float | None
 
-    def __init__(self,
+    def __init__(
+        self,
         file_name:          str,
         md5_sum:            str,
         series_number:      int | None,
@@ -94,6 +100,7 @@ class DicomFile:
         self.echo_number        = echo_number
         self.echo_time          = echo_time
 
+
 class OtherFile:
     """
     Non-DICOM file object, which contains information about a non-DICOM file
@@ -107,6 +114,7 @@ class OtherFile:
         self.file_name = file_name
         self.md5_sum   = md5_sum
 
+
 class Acquisition:
     """
     DICOM acquisition object, which contains information about a DICOM series.
@@ -116,15 +124,16 @@ class Acquisition:
     series_uid:         str | None
     series_description: str | None
     sequence_name:      str | None
-    echo_time:          float | None # In Milliseconds
-    repetition_time:    float | None # In Milliseconds
-    inversion_time:     float | None # In Milliseconds
-    slice_thickness:    float | None # In Millimeters
+    echo_time:          float | None  # In Milliseconds
+    repetition_time:    float | None  # In Milliseconds
+    inversion_time:     float | None  # In Milliseconds
+    slice_thickness:    float | None  # In Millimeters
     phase_encoding:     str | None
     number_of_files:    int
     modality:           str | None
 
-    def __init__(self,
+    def __init__(
+        self,
         series_number:      int,
         series_uid:         str | None,
         series_description: str | None,
@@ -149,6 +158,7 @@ class Acquisition:
         self.number_of_files    = number_of_files
         self.modality           = modality
 
+
 class Summary:
     """
     DICOM summary object, which contains information about a DICOM directory.
@@ -159,7 +169,8 @@ class Summary:
     dicom_files: list[DicomFile]
     other_files: list[OtherFile]
 
-    def __init__(self,
+    def __init__(
+        self,
         info: Info,
         acquis: list[Acquisition],
         dicom_files: list[DicomFile],

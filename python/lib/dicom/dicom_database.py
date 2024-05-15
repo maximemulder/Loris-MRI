@@ -4,9 +4,10 @@ from typing import Any
 from lib.database import Database
 from lib.dicom.summary_type import Summary
 from lib.dicom.dicom_log import Log
-from lib.dicom.text import *
+import lib.dicom.text
 import lib.dicom.summary_write
 import lib.dicom.dicom_log
+
 
 def select_dict(db: Database, fields: list[str], table: str, conds: dict[str, Any]):
     """
@@ -23,9 +24,10 @@ def select_dict(db: Database, fields: list[str], table: str, conds: dict[str, An
     :returns: The list of matching records.
     """
 
-    query_conds  = map(lambda key: key + (' = ' if key != None else ' IS ') + '%s', conds.keys())
+    query_conds  = map(lambda key: key + (' = ' if key is not None else ' IS ') + '%s', conds.keys())
     query = f'SELECT {", ".join(fields)} FROM {table} WHERE {" AND ".join(query_conds)}'
     return db.pselect(query, [*conds.values()])
+
 
 def insert_dict(db: Database, table: str, attrs: dict[str, Any]):
     """
@@ -43,6 +45,7 @@ def insert_dict(db: Database, table: str, attrs: dict[str, Any]):
     # NOTE: This should always return an ID, the `or` is for the type checker.
     return db.insert(table, list(attrs.keys()), [tuple(attrs.values())], get_last_id=True) or 0
 
+
 def update_dict(db: Database, table: str, conds: dict[str, Any], attrs: dict[str, Any]):
     """
     Update some records in a database table, using dictionaries to specify the
@@ -57,10 +60,11 @@ def update_dict(db: Database, table: str, conds: dict[str, Any], attrs: dict[str
         the record to be updated.
     """
 
-    query_conds = map(lambda key: key + (' = ' if key != None else ' IS ') + '%s', conds.keys())
+    query_conds = map(lambda key: key + (' = ' if key is not None else ' IS ') + '%s', conds.keys())
     query_attrs = map(lambda key: f'{key} = %s', attrs.keys())
     query = f'UPDATE {table} SET {", ".join(query_attrs)} WHERE {" AND ".join(query_conds)}'
     db.update(query, [*attrs.values(), *conds.values()])
+
 
 def delete_dict(db: Database, table: str, conds: dict[str, Any]):
     """
@@ -74,12 +78,13 @@ def delete_dict(db: Database, table: str, conds: dict[str, Any]):
         Other forms of conditions are not supported by this function.
     """
 
-    query_conds = map(lambda key: f'{key} = %s', conds.keys())
+    query_conds = map(lambda key: key + (' = ' if key is not None else ' IS ') + '%s', conds.keys())
     query = f'DELETE FROM {table} WHERE {" AND ".join(query_conds)}'
 
     # NOTE: `Database.update` can be used for any query currently. Since the
     # current database abstraction is a little rudimentary, we use that here.
     db.update(query, conds.values())
+
 
 def get_archive_with_study_uid(db: Database, study_uid: str):
     """
@@ -102,18 +107,19 @@ def get_archive_with_study_uid(db: Database, study_uid: str):
 
     return results[0]['TarchiveID'], results[0]['CreateInfo']
 
+
 def get_dicom_dict(log: Log, summary: Summary):
     return {
         'DicomArchiveID': summary.info.study_uid,
         'PatientID': summary.info.patient.id,
         'PatientName': summary.info.patient.name,
-        'PatientDoB': write_date_none(summary.info.patient.birth_date),
+        'PatientDoB': lib.dicom.text.write_date_none(summary.info.patient.birth_date),
         'PatientSex': summary.info.patient.sex,
         'neurodbCenterName': None,
         'CenterName': summary.info.institution or '',
         'LastUpdate': None,
-        'DateAcquired': write_date_none(summary.info.scan_date),
-        'DateLastArchived': write_datetime(datetime.now()),
+        'DateAcquired': lib.dicom.text.write_date_none(summary.info.scan_date),
+        'DateLastArchived': lib.dicom.text.write_datetime(datetime.now()),
         'AcquisitionCount': len(summary.acquis),
         'NonDicomFileCount': len(summary.other_files),
         'DicomFileCount': len(summary.dicom_files),
@@ -136,6 +142,7 @@ def get_dicom_dict(log: Log, summary: Summary):
         'PendingTransfer': 0,
     }
 
+
 def insert(db: Database, log: Log, summary: Summary):
     """
     Insert a DICOM archive into the database.
@@ -145,9 +152,10 @@ def insert(db: Database, log: Log, summary: Summary):
     :param summary: The summary of the DICOM archive.
     """
     dicom_dict = get_dicom_dict(log, summary)
-    dicom_dict['DateFirstArchived'] = write_datetime(datetime.now()),
+    dicom_dict['DateFirstArchived'] = lib.dicom.text.write_datetime(datetime.now()),
     archive_id = insert_dict(db, 'tarchive', dicom_dict)
     insert_files_series(db, archive_id, summary)
+
 
 def insert_files_series(db: Database, archive_id: int, summary: Summary):
     for acqui in summary.acquis:
@@ -185,6 +193,7 @@ def insert_files_series(db: Database, archive_id: int, summary: Summary):
             'TarchiveSeriesID': series_id,
         })
 
+
 def update(db: Database, archive_id: int, log: Log, summary: Summary):
     """
     Insert a DICOM archive into the database.
@@ -196,12 +205,12 @@ def update(db: Database, archive_id: int, log: Log, summary: Summary):
     """
 
     # Delete the associated database DICOM files and series.
-    delete_dict(db, 'tarchive_files',  { 'TarchiveID': archive_id })
-    delete_dict(db, 'tarchive_series', { 'TarchiveID': archive_id })
+    delete_dict(db, 'tarchive_files',  {'TarchiveID': archive_id})
+    delete_dict(db, 'tarchive_series', {'TarchiveID': archive_id})
 
     # Update the database record with the new DICOM information.
     dicom_dict = get_dicom_dict(log, summary)
-    update_dict(db, 'tarchive', { 'TarchiveID': archive_id }, dicom_dict)
+    update_dict(db, 'tarchive', {'TarchiveID': archive_id}, dicom_dict)
 
     # Insert the new DICOM files and series.
     insert_files_series(db, archive_id, summary)

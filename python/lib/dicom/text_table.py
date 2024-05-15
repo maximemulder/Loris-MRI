@@ -1,4 +1,5 @@
-from lib.dicom.text import *
+from lib.dicom.text import write_value
+
 
 class TableWriter:
     """

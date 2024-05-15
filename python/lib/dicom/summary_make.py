@@ -2,8 +2,9 @@ from functools import cmp_to_key
 import os
 import pydicom
 import pydicom.errors
-from lib.dicom.summary_type import *
-from lib.dicom.text import *
+from lib.dicom.summary_type import Summary, Info, Patient, Scanner, Acquisition, DicomFile, OtherFile
+from lib.dicom.text import make_hash, read_dicom_date_none
+
 
 def get_value(dicom: pydicom.Dataset, tag: str):
     """
@@ -14,6 +15,7 @@ def get_value(dicom: pydicom.Dataset, tag: str):
 
     return dicom[tag].value
 
+
 def get_value_none(dicom: pydicom.Dataset, tag: str):
     """
     Get a nullable value from a DICOM.
@@ -22,6 +24,7 @@ def get_value_none(dicom: pydicom.Dataset, tag: str):
         return None
 
     return dicom[tag].value or None
+
 
 def cmp_int_none(a: int | None, b: int | None):
     """
@@ -36,6 +39,7 @@ def cmp_int_none(a: int | None, b: int | None):
             return 1
         case a, b:
             return a - b
+
 
 def cmp_string_none(a: str | None, b: str | None):
     """
@@ -55,6 +59,7 @@ def cmp_string_none(a: str | None, b: str | None):
         case a, b:
             return 0
 
+
 def cmp_files(a: DicomFile, b: DicomFile):
     """
     Compare the order of two files to sort them in the summary.
@@ -64,6 +69,7 @@ def cmp_files(a: DicomFile, b: DicomFile):
         cmp_int_none(a.file_number, b.file_number) or \
         cmp_int_none(a.echo_number, b.echo_number)
 
+
 def cmp_acquis(a: Acquisition, b: Acquisition):
     """
     Compare the order of two acquisitions to sort them in the summary.
@@ -71,6 +77,7 @@ def cmp_acquis(a: Acquisition, b: Acquisition):
     return \
         a.series_number - b.series_number or \
         cmp_string_none(a.sequence_name, b.sequence_name)
+
 
 def make(dir_path: str):
     """
@@ -85,7 +92,7 @@ def make(dir_path: str):
     for file_name in os.listdir(dir_path):
         try:
             dicom = pydicom.dcmread(dir_path + '/' + file_name)
-            if info == None:
+            if info is None:
                 info = make_info(dicom)
 
             dicom_files.append(make_dicom_file(dicom))
@@ -101,7 +108,7 @@ def make(dir_path: str):
         except pydicom.errors.InvalidDicomError:
             other_files.append(make_other_file(dir_path + '/' + file_name))
 
-    if info == None:
+    if info is None:
         raise Exception('Found no DICOM file in the directory.')
 
     acquis = list(acquis_dict.values())
@@ -110,6 +117,7 @@ def make(dir_path: str):
     acquis      = sorted(acquis,      key=cmp_to_key(cmp_acquis))
 
     return Summary(info, acquis, dicom_files, other_files)
+
 
 def make_info(dicom: pydicom.Dataset):
     """
@@ -143,6 +151,7 @@ def make_info(dicom: pydicom.Dataset):
         get_value(dicom, 'Modality'),
     )
 
+
 def make_dicom_file(dicom: pydicom.Dataset):
     """
     Create a `DicomFile` object from a DICOM file, containing information about
@@ -159,6 +168,7 @@ def make_dicom_file(dicom: pydicom.Dataset):
         get_value_none(dicom, 'EchoTime'),
     )
 
+
 def make_other_file(file_path: str):
     """
     Create an `OtherFile` object from a non-DICOM file, containing information
@@ -168,6 +178,7 @@ def make_other_file(file_path: str):
         os.path.basename(file_path),
         make_hash(file_path),
     )
+
 
 def make_acqui(dicom: pydicom.Dataset):
     """
