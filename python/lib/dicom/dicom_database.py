@@ -24,7 +24,12 @@ def select_dict(db: Database, fields: list[str], table: str, conds: dict[str, An
     :returns: The list of matching records.
     """
 
-    query_conds  = map(lambda key: key + (' = ' if key is not None else ' IS ') + '%s', conds.keys())
+    query_conds  = map(
+        lambda key, value: key + (' = ' if value is not None else ' IS ') + '%s',
+        conds.keys(),
+        conds.values(),
+    )
+
     query = f'SELECT {", ".join(fields)} FROM {table} WHERE {" AND ".join(query_conds)}'
     return db.pselect(query, [*conds.values()])
 
@@ -60,7 +65,12 @@ def update_dict(db: Database, table: str, conds: dict[str, Any], attrs: dict[str
         the record to be updated.
     """
 
-    query_conds = map(lambda key: key + (' = ' if key is not None else ' IS ') + '%s', conds.keys())
+    query_conds = map(
+        lambda key, value: key + (' = ' if value is not None else ' IS ') + '%s',
+        conds.keys(),
+        conds.values(),
+    )
+
     query_attrs = map(lambda key: f'{key} = %s', attrs.keys())
     query = f'UPDATE {table} SET {", ".join(query_attrs)} WHERE {" AND ".join(query_conds)}'
     db.update(query, [*attrs.values(), *conds.values()])
@@ -78,7 +88,12 @@ def delete_dict(db: Database, table: str, conds: dict[str, Any]):
         Other forms of conditions are not supported by this function.
     """
 
-    query_conds = map(lambda key: key + (' = ' if key is not None else ' IS ') + '%s', conds.keys())
+    query_conds = map(
+        lambda key, value: key + (' = ' if value is not None else ' IS ') + '%s',
+        conds.keys(),
+        conds.values(),
+    )
+
     query = f'DELETE FROM {table} WHERE {" AND ".join(query_conds)}'
 
     # NOTE: `Database.update` can be used for any query currently. Since the

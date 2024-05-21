@@ -197,7 +197,31 @@ check_create_file(log_path)
 
 print('Extracting DICOM information (may take a long time)')
 
-summary = lib.dicom.summary_make.make(source)
+summary = lib.dicom.summary_make.make(source, verbose)
+
+if db is not None:
+    print('Checking database presence')
+
+    archive = lib.dicom.dicom_database.get_archive_with_study_uid(db, summary.info.study_uid)
+
+    if db_insert and  archive is not None:
+        print_error_exit(
+            (
+                f'Study \'{summary.info.study_uid}\' is already inserted in the database\n'
+                'Previous archiving log:\n'
+                f'{archive[1]}'
+            ),
+            lib.exitcode.INSERT_FAILURE,
+        )
+
+    if db_update and archive is None:
+        print_error_exit(
+            f'No study \'{summary.info.study_uid}\' found in the database',
+            lib.exitcode.UPDATE_FAILURE,
+        )
+else:
+    # Placeholder for type checker
+    archive = None
 
 print('Copying into DICOM tar')
 
@@ -288,34 +312,13 @@ print('Calculating DICOM tar MD5 sum')
 log.archive_md5_sum = lib.dicom.text.make_hash(log.target_path, True)
 
 if db_insert:
-    # NOTE: `db` cannot be `None` here.
+    # `db` cannot be `None` here.
     db = cast(Database, db)
-
-    archive = lib.dicom.dicom_database.get_archive_with_study_uid(db, summary.info.study_uid)
-    if archive is not None:
-        print_error_exit(
-            (
-                f'Study \'{summary.info.study_uid}\' is already inserted in the database\n'
-                'Previous archiving log:\n'
-                f'{archive[1]}'
-            ),
-            lib.exitcode.INSERT_FAILURE,
-        )
-
     lib.dicom.dicom_database.insert(db, log, summary)
 
 if db_update:
-    # NOTE: `db` cannot be `None` here.
+    # `db` and `archive` cannot be `None` here.
     db = cast(Database, db)
-
-    archive = lib.dicom.dicom_database.get_archive_with_study_uid(db, summary.info.study_uid)
-    if archive is None:
-        print_error_exit(
-            f'No study \'{summary.info.study_uid}\' found in the database',
-            lib.exitcode.UPDATE_FAILURE,
-        )
-
-    # NOTE: `archive` cannot be `None` here.
     archive = cast(tuple[Any, Any], archive)
     lib.dicom.dicom_database.update(db, archive[0], log, summary)
 

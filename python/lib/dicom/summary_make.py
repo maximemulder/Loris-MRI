@@ -79,7 +79,21 @@ def cmp_acquis(a: Acquisition, b: Acquisition):
         cmp_string_none(a.sequence_name, b.sequence_name)
 
 
-def make(dir_path: str):
+def get_dir_files(prefix: str, path: str) -> list[str]:
+    """
+    Recursively get the files of a directory.
+    """
+    if os.path.isdir(prefix + '/' + path):
+        files = []
+        for file in os.listdir(prefix + '/' + path):
+            files += get_dir_files(prefix, path + '/' + file)
+
+        # Flatten the lists of files
+        return files
+
+    return [path]
+
+def make(dir_path: str, verbose: bool):
     """
     Create a DICOM summary object from a DICOM directory path.
     """
@@ -89,7 +103,11 @@ def make(dir_path: str):
     other_files: list[OtherFile] = []
     acquis_dict: dict[tuple[int, int | None, str | None], Acquisition] = dict()
 
-    for file_name in os.listdir(dir_path):
+    file_names = get_dir_files(dir_path, '')
+    for i, file_name in enumerate(file_names):
+        if verbose:
+            print(f'Processing file \'{file_name}\' ({i + 1}/{len(file_names)})')
+
         try:
             dicom = pydicom.dcmread(dir_path + '/' + file_name)
             if info is None:
