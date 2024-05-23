@@ -1,9 +1,10 @@
+import lib.db.DicomArchive as DicomArchive
 from datetime import datetime
-from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase
+from lib.db.Base import Base
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional
 
-class Base(DeclarativeBase):
-    pass
 
 class MriUpload(Base):
     __tablename__ = 'mri_upload'
@@ -18,7 +19,8 @@ class MriUpload(Base):
     patient_name                : Mapped[str]                = mapped_column('PatientName')
     number_of_minc_inserted     : Mapped[Optional[int]]      = mapped_column('number_of_mincInserted')
     number_of_minc_created      : Mapped[Optional[int]]      = mapped_column('number_of_mincCreated')
-    dicom_archive_id            : Mapped[Optional[int]]      = mapped_column('TarchiveID')
+    dicom_archive_id            : Mapped[Optional[int]]      = mapped_column('TarchiveID', ForeignKey('tarchive.TarchiveID'))
+    dicom_archive               : Mapped[Optional['DicomArchive.DicomArchive']] = relationship('DicomArchive', back_populates='upload')
     session_id                  : Mapped[Optional[int]]      = mapped_column('SessionID')
     is_candidate_info_validated : Mapped[Optional[bool]]     = mapped_column('IsCandidateInfoValidated')
     is_dicom_archive_validated  : Mapped[bool]               = mapped_column('IsTarchiveValidated')

@@ -3,10 +3,11 @@ import getpass
 import os
 import sys
 import lib.exitcode
-import lib.db.MriUpload
 from datetime import datetime
+from lib.db.MriUpload import MriUpload
+from lib.db.DicomArchive import DicomArchive
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
-from sqlalchemy import create_engine
 
 parser = argparse.ArgumentParser(description=(
         'Create a MRI upload entry from an existing DICOM archive.'
@@ -83,18 +84,21 @@ engine = create_engine(f'mariadb+mysqlconnector://{credentials["username"]}:{cre
 date             = datetime.now()
 uploader         = getpass.getuser()
 source_path      = args.source
-dicom_archive_id = 98
+query = select(DicomArchive).where(DicomArchive.archive_location == args.archive)
 
-mri_upload = lib.db.MriUpload.MriUpload(
-    upload_date=date,
-    decompressed_location=source_path,
-    dicom_archive_id=dicom_archive_id,
-    uploaded_by=uploader,
-    upload_location='',
-    insertion_complete=False,
-    patient_name='NAME',
-    is_dicom_archive_validated=False,
-    is_phantom='N',
+with Session(engine) as session:
+    dicom_archive = session.scalars(query).one()
+
+mri_upload = MriUpload(
+    upload_date = date,
+    decompressed_location = source_path,
+    dicom_archive_id = dicom_archive.id,
+    uploaded_by = uploader,
+    upload_location = '',
+    insertion_complete = False,
+    patient_name = dicom_archive.patient_name,
+    is_dicom_archive_validated = False,
+    is_phantom = 'N',
 )
 
 with Session(engine) as session:
