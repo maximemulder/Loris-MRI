@@ -79,6 +79,7 @@ class DicomFile:
     file_number:        int | None
     echo_number:        int | None
     echo_time:          float | None
+    sequence_name:      str | None
 
     def __init__(
         self,
@@ -90,6 +91,7 @@ class DicomFile:
         file_number:        int | None,
         echo_number:        int | None,
         echo_time:          float | None,
+        sequence_name:      str | None,
     ):
         self.file_name          = file_name
         self.md5_sum            = md5_sum
@@ -99,6 +101,7 @@ class DicomFile:
         self.file_number        = file_number
         self.echo_number        = echo_number
         self.echo_time          = echo_time
+        self.sequence_name      = sequence_name
 
 
 class OtherFile:

@@ -26,6 +26,37 @@ def get_value_none(dicom: pydicom.Dataset, tag: str):
     return dicom[tag].value or None
 
 
+# Pydicom can return subclasses of primitive types (str, float...), which may
+# be incompatible with other libraries. So it is important to cast these values
+# back to the base Python type.
+
+def get_value_float(dicom: pydicom.Dataset, tag: str):
+    return float(get_value(dicom, tag))
+
+
+def get_value_int(dicom: pydicom.Dataset, tag: str):
+    return int(get_value(dicom, tag))
+
+
+def get_value_string(dicom: pydicom.Dataset, tag: str):
+    return str(get_value(dicom, tag))
+
+
+def get_value_float_none(dicom: pydicom.Dataset, tag: str):
+    value = get_value_none(dicom, tag)
+    return float(value) if value is not None else None
+
+
+def get_value_int_none(dicom: pydicom.Dataset, tag: str):
+    value = get_value_none(dicom, tag)
+    return int(value) if value is not None else None
+
+
+def get_value_string_none(dicom: pydicom.Dataset, tag: str):
+    value = get_value_none(dicom, tag)
+    return str(value) if value is not None else None
+
+
 def cmp_int_none(a: int | None, b: int | None):
     """
     Order comparison between two nullable integers.
@@ -115,14 +146,14 @@ def make(dir_path: str, verbose: bool):
 
             dicom_files.append(make_dicom_file(dicom))
 
-            series   = dicom.SeriesNumber
-            echo     = get_value_none(dicom, 'EchoNumbers')
-            sequence = get_value_none(dicom, 'SequenceName')
+            series   = get_value_int(dicom, 'SeriesNumber')
+            echo     = get_value_int_none(dicom, 'EchoNumbers')
+            sequence = get_value_string_none(dicom, 'SequenceName')
 
-            if not (series, sequence, echo) in acquis_dict:
-                acquis_dict[(series, sequence, echo)] = make_acqui(dicom)
+            if not (series, echo, sequence) in acquis_dict:
+                acquis_dict[(series, echo, sequence)] = make_acqui(dicom)
 
-            acquis_dict[(series, sequence, echo)].number_of_files += 1
+            acquis_dict[(series, echo, sequence)].number_of_files += 1
         except pydicom.errors.InvalidDicomError:
             other_files.append(make_other_file(dir_path + '/' + file_name))
 
@@ -147,26 +178,26 @@ def make_info(dicom: pydicom.Dataset):
     scan_date  = read_dicom_date_none(get_value_none(dicom, 'StudyDate'))
 
     patient = Patient(
-        get_value(dicom, 'PatientID'),
-        get_value(dicom, 'PatientName'),
-        get_value_none(dicom, 'PatientSex'),
+        get_value_string(dicom, 'PatientID'),
+        get_value_string(dicom, 'PatientName'),
+        get_value_string_none(dicom, 'PatientSex'),
         birth_date,
     )
 
     scanner = Scanner(
-        get_value(dicom, 'Manufacturer'),
-        get_value(dicom, 'ManufacturerModelName'),
-        get_value(dicom, 'DeviceSerialNumber'),
-        get_value(dicom, 'SoftwareVersions'),
+        get_value_string(dicom, 'Manufacturer'),
+        get_value_string(dicom, 'ManufacturerModelName'),
+        get_value_string(dicom, 'DeviceSerialNumber'),
+        get_value_string(dicom, 'SoftwareVersions'),
     )
 
     return Info(
-        get_value(dicom, 'StudyInstanceUID'),
+        get_value_string(dicom, 'StudyInstanceUID'),
         patient,
         scanner,
         scan_date,
-        get_value_none(dicom, 'InstitutionName'),
-        get_value(dicom, 'Modality'),
+        get_value_string_none(dicom, 'InstitutionName'),
+        get_value_string(dicom, 'Modality'),
     )
 
 
@@ -178,12 +209,13 @@ def make_dicom_file(dicom: pydicom.Dataset):
     return DicomFile(
         os.path.basename(dicom.filename),
         make_hash(dicom.filename),
-        get_value_none(dicom, 'SeriesNumber'),
-        get_value_none(dicom, 'SeriesInstanceUID'),
-        get_value_none(dicom, 'SeriesDescription'),
-        get_value_none(dicom, 'InstanceNumber'),
-        get_value_none(dicom, 'EchoNumbers'),
-        get_value_none(dicom, 'EchoTime'),
+        get_value_int_none(dicom, 'SeriesNumber'),
+        get_value_string_none(dicom, 'SeriesInstanceUID'),
+        get_value_string_none(dicom, 'SeriesDescription'),
+        get_value_int_none(dicom, 'InstanceNumber'),
+        get_value_int_none(dicom, 'EchoNumbers'),
+        get_value_float_none(dicom, 'EchoTime'),
+        get_value_string_none(dicom, 'SequenceName'),
     )
 
 
@@ -204,15 +236,15 @@ def make_acqui(dicom: pydicom.Dataset):
     about a DICOM series.
     """
     return Acquisition(
-        get_value(dicom, 'SeriesNumber'),
-        get_value_none(dicom, 'SeriesInstanceUID'),
-        get_value_none(dicom, 'SeriesDescription'),
-        get_value_none(dicom, 'SequenceName'),
-        get_value_none(dicom, 'EchoTime'),
-        get_value_none(dicom, 'RepetitionTime'),
-        get_value_none(dicom, 'InversionTime'),
-        get_value_none(dicom, 'SliceThickness'),
-        get_value_none(dicom, 'InPlanePhaseEncodingDirection'),
+        get_value_int(dicom, 'SeriesNumber'),
+        get_value_string_none(dicom, 'SeriesInstanceUID'),
+        get_value_string_none(dicom, 'SeriesDescription'),
+        get_value_string_none(dicom, 'SequenceName'),
+        get_value_float_none(dicom, 'EchoTime'),
+        get_value_float_none(dicom, 'RepetitionTime'),
+        get_value_float_none(dicom, 'InversionTime'),
+        get_value_float_none(dicom, 'SliceThickness'),
+        get_value_string_none(dicom, 'InPlanePhaseEncodingDirection'),
         0,
-        get_value_none(dicom, 'Modality'),
+        get_value_string_none(dicom, 'Modality'),
     )

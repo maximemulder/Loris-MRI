@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from datetime import date
-from typing import Any, cast
+from typing import cast
 import argparse
 import gzip
 import os
@@ -9,13 +9,17 @@ import shutil
 import sys
 import tarfile
 
-from lib.database import Database
+from lib.db.database import connect_to_db
+from lib.db.orm.dicom_archive import DicomArchive
+from lib.db.orm.mri_upload import MriUpload
 import lib.dicom.dicom_database
 import lib.dicom.dicom_log
 import lib.dicom.summary_make
 import lib.dicom.summary_write
 import lib.dicom.text
 import lib.exitcode
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 
 def print_error_exit(message: str, code: int):
@@ -124,6 +128,16 @@ parser.add_argument(
         'already be inserted), generally used with \'--overwrite\''))
 
 parser.add_argument(
+    '--db-upload',
+    action='store',
+    type=int,
+    help=(
+        'Update an exisiting MRI upload entry in the database to associate it with '
+        'the newly create DICOM archive.'
+    )
+)
+
+parser.add_argument(
     'source',
     help='The source DICOM directory')
 
@@ -144,6 +158,7 @@ year:      bool       = args.year
 overwrite: bool       = args.overwrite
 db_insert: bool       = args.db_insert
 db_update: bool       = args.db_update
+db_upload: int | None = args.db_upload
 
 # Check arguments
 
@@ -153,7 +168,13 @@ if db_insert and db_update:
         lib.exitcode.INVALID_ARG,
     )
 
-if (db_insert or db_update) and not profile:
+if db_upload is not None and not (db_insert or db_update):
+    print_error_exit(
+        'Arguments \'--db-insert\' or \'--db-update\' must be set when \'--db-upload\' is set.',
+        lib.exitcode.INVALID_ARG,
+    )
+
+if (db_insert or db_update or db_upload is not None) and not profile:
     print_error_exit(
         'Argument \'--profile\' must be set when a \'--db-*\' argument is set.',
         lib.exitcode.INVALID_ARG,
@@ -175,8 +196,7 @@ if not os.path.isdir(target) or not os.access(target, os.W_OK):
 
 db = None
 if profile is not None:
-    db = Database(load_config_file(profile).mysql, False)
-    db.connect()
+    db = connect_to_db(load_config_file(args.profile).mysql)
 
 # Check paths
 
@@ -195,33 +215,45 @@ check_create_file(zip_path)
 check_create_file(summary_path)
 check_create_file(log_path)
 
+# Check MRI upload
+
+# Placeholder for type checker
+mri_upload = None
+if db_upload is not None:
+    db = cast(Session, db)
+    mri_upload = lib.dicom.dicom_database.get_mri_upload(db, db_upload)
+    if mri_upload is None:
+        print_error_exit(
+            f'No MRI upload found in the database with id {db_upload}.',
+            lib.exitcode.UPDATE_FAILURE,
+        )
+
 print('Extracting DICOM information (may take a long time)')
 
 summary = lib.dicom.summary_make.make(source, verbose)
 
+# Placeholder for type checker
+dicom_archive = None
 if db is not None:
     print('Checking database presence')
 
-    archive = lib.dicom.dicom_database.get_archive_with_study_uid(db, summary.info.study_uid)
+    dicom_archive = lib.dicom.dicom_database.get_archive_with_study_uid(db, summary.info.study_uid)
 
-    if db_insert and  archive is not None:
+    if db_insert and dicom_archive is not None:
         print_error_exit(
             (
                 f'Study \'{summary.info.study_uid}\' is already inserted in the database\n'
                 'Previous archiving log:\n'
-                f'{archive[1]}'
+                f'{dicom_archive.create_info}'
             ),
             lib.exitcode.INSERT_FAILURE,
         )
 
-    if db_update and archive is None:
+    if db_update and dicom_archive is None:
         print_error_exit(
             f'No study \'{summary.info.study_uid}\' found in the database',
             lib.exitcode.UPDATE_FAILURE,
         )
-else:
-    # Placeholder for type checker
-    archive = None
 
 print('Copying into DICOM tar')
 
@@ -311,15 +343,22 @@ print('Calculating DICOM tar MD5 sum')
 
 log.archive_md5_sum = lib.dicom.text.make_hash(log.target_path, True)
 
-if db_insert:
-    # `db` cannot be `None` here.
-    db = cast(Database, db)
-    lib.dicom.dicom_database.insert(db, log, summary)
+if db:
+    if db_insert:
+        print('Inserting DICOM archive in the database')
+        dicom_archive = lib.dicom.dicom_database.insert(db, log, summary)
 
-if db_update:
-    # `db` and `archive` cannot be `None` here.
-    db = cast(Database, db)
-    archive = cast(tuple[Any, Any], archive)
-    lib.dicom.dicom_database.update(db, archive[0], log, summary)
+    if db_update:
+        print('Updating DICOM archive in the database')
+        dicom_archive = cast(DicomArchive, dicom_archive)
+        lib.dicom.dicom_database.update(db, dicom_archive, log, summary)
+
+    if db_upload is not None:
+        print('Updating MRI upload in the database')
+        mri_upload    = cast(MriUpload, mri_upload)
+        dicom_archive = cast(DicomArchive, dicom_archive)
+        lib.dicom.dicom_database.upload(dicom_archive, mri_upload)
+
+    db.commit()
 
 print('Success')

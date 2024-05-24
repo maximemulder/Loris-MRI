@@ -1,231 +1,170 @@
 from datetime import datetime
-from typing import Any
 
-from lib.database import Database
+from lib.db.orm.dicom_archive import DicomArchive
+from lib.db.orm.dicom_archive_file import DicomArchiveFile
+from lib.db.orm.dicom_archive_series import DicomArchiveSeries
+from lib.db.orm.mri_upload import MriUpload
 from lib.dicom.summary_type import Summary
 from lib.dicom.dicom_log import Log
+from sqlalchemy import select, delete
+from sqlalchemy.orm import Session
 import lib.dicom.text
 import lib.dicom.summary_write
 import lib.dicom.dicom_log
 
 
-def select_dict(db: Database, fields: list[str], table: str, conds: dict[str, Any]):
+def get_archive_with_study_uid(db: Session, study_uid: str):
     """
-    Select a record in a table, using a dictionary to specify the conditions \
-    needed to update a record.
+    Get the DICOM archive ORM object associated with a given study UID if there
+    is one in the database.
 
-    :param db: The database.
-    :param fields: A list of field names to retrieve.
-    :param table: The table name.
-    :param conds: A dictionary mapping field names to their current values to \
-        determine the records to be updated. \
-        Other forms of conditions are not supported by this function.
+    :param db: The database session.
+    :param study_uid: The DICOM archive study UID.
 
-    :returns: The list of matching records.
+    :returns: The DICOM archive ORM object or `None`.
     """
 
-    query_conds  = map(
-        lambda key, value: key + (' = ' if value is not None else ' IS ') + '%s',
-        conds.keys(),
-        conds.values(),
-    )
-
-    query = f'SELECT {", ".join(fields)} FROM {table} WHERE {" AND ".join(query_conds)}'
-    return db.pselect(query, [*conds.values()])
+    query = select(DicomArchive).where(DicomArchive.study_uid == study_uid)
+    return db.execute(query).scalar_one_or_none()
 
 
-def insert_dict(db: Database, table: str, attrs: dict[str, Any]):
+def get_mri_upload(db: Session, id: int):
     """
-    Insert a record in a table, using a dictionary to specify the attributes of
-    the record.
+    Get the MRI upload ORM object associated with a given ID if there is one in
+    the database.
 
-    :param db: The database.
-    :param table: The table name.
-    :param attrs: A dictionary mapping field names to their values in the \
-        record to be inserted.
+    :param db: The database session.
+    :param id: The MRI upload ID.
 
-    :returns: The ID of the inserted record.
+    :returns: The MRI upload ORM object or `None`.
     """
 
-    # NOTE: This should always return an ID, the `or` is for the type checker.
-    return db.insert(table, list(attrs.keys()), [tuple(attrs.values())], get_last_id=True) or 0
+    query = select(MriUpload).where(MriUpload.id == id)
+    return db.execute(query).scalar_one_or_none()
 
-
-def update_dict(db: Database, table: str, conds: dict[str, Any], attrs: dict[str, Any]):
+def populate_dicom_archive(dicom_archive: DicomArchive, log: Log, summary: Summary):
     """
-    Update some records in a database table, using dictionaries to specify the
-    attributes to update and the conditions needed to update a record.
+    Populate a DICOM archive ORM object with information from its archiving log
+    and DICOM summary.
 
-    :param db: The database.
-    :param table: The table name.
-    :param conds: A dictionary mapping field names to their current values to \
-        determine the records to be updated. \
-        Other forms of conditions are not supported by this function.
-    :param attrs: A dictionary mapping field names to their updated values in \
-        the record to be updated.
+    :param dicom_archive: The DICOM archive ORM object to populate.
+    :param log: The DICOM arching log object.
+    :param summary: The DICOM summary object.
     """
-
-    query_conds = map(
-        lambda key, value: key + (' = ' if value is not None else ' IS ') + '%s',
-        conds.keys(),
-        conds.values(),
-    )
-
-    query_attrs = map(lambda key: f'{key} = %s', attrs.keys())
-    query = f'UPDATE {table} SET {", ".join(query_attrs)} WHERE {" AND ".join(query_conds)}'
-    db.update(query, [*attrs.values(), *conds.values()])
-
-
-def delete_dict(db: Database, table: str, conds: dict[str, Any]):
-    """
-    Delete some records in a database table, using a dictionary to specify the
-    conditions needed to update a record.
-
-    :param db: The database.
-    :param table: The table name.
-    :param conds: A dictionary mapping field names to their current values to \
-        determine the records to be deleted. \
-        Other forms of conditions are not supported by this function.
-    """
-
-    query_conds = map(
-        lambda key, value: key + (' = ' if value is not None else ' IS ') + '%s',
-        conds.keys(),
-        conds.values(),
-    )
-
-    query = f'DELETE FROM {table} WHERE {" AND ".join(query_conds)}'
-
-    # NOTE: `Database.update` can be used for any query currently. Since the
-    # current database abstraction is a little rudimentary, we use that here.
-    db.update(query, conds.values())
+    dicom_archive.study_uid                = str(summary.info.study_uid)
+    dicom_archive.patient_id               = summary.info.patient.id
+    dicom_archive.patient_name             = str(summary.info.patient.name)
+    dicom_archive.patient_birthdate        = summary.info.patient.birth_date
+    dicom_archive.patient_sex              = summary.info.patient.sex
+    dicom_archive.neuro_db_center_name     = None
+    dicom_archive.center_name              = summary.info.institution or ''
+    dicom_archive.last_update              = None
+    dicom_archive.date_acquired            = summary.info.scan_date
+    dicom_archive.date_last_archived       = datetime.now()
+    dicom_archive.acquisition_count        = len(summary.acquis)
+    dicom_archive.dicom_file_count         = len(summary.dicom_files)
+    dicom_archive.non_dicom_file_count     = len(summary.other_files)
+    dicom_archive.md5_sum_dicom_only       = log.tarball_md5_sum
+    dicom_archive.md5_sum_archive          = log.archive_md5_sum
+    dicom_archive.creating_user            = log.creator_name
+    dicom_archive.sum_type_version         = log.summary_version
+    dicom_archive.tar_type_version         = log.archive_version
+    dicom_archive.source_location          = log.source_path
+    dicom_archive.archive_location         = log.target_path
+    dicom_archive.scanner_manufacturer     = summary.info.scanner.manufacturer
+    dicom_archive.scanner_model            = summary.info.scanner.model
+    dicom_archive.scanner_serial_number    = summary.info.scanner.serial_number
+    dicom_archive.scanner_software_version = summary.info.scanner.software_version
+    dicom_archive.session_id               = None
+    dicom_archive.upload_attempt           = 0
+    dicom_archive.create_info              = lib.dicom.dicom_log.write_to_string(log)
+    dicom_archive.acquisition_metadata     = lib.dicom.summary_write.write_to_string(summary)
+    dicom_archive.date_sent                = None
+    dicom_archive.pending_transfer         = 0
 
 
-def get_archive_with_study_uid(db: Database, study_uid: str):
-    """
-    Get the archive ID and archiving log of an existing DICOM archive in the
-    database if there is one.
-
-    :param db: The database.
-    :param study_uid: The DICOM archive study uID.
-
-    :returns: A tuple containing the archive ID and the archiving log if an \
-        archive is found, or `None` otherwise.
-    """
-
-    results = select_dict(db, ['TarchiveID', 'CreateInfo'], 'tarchive', {
-        'DicomArchiveID': study_uid,
-    })
-
-    if len(results) == 0:
-        return None
-
-    return results[0]['TarchiveID'], results[0]['CreateInfo']
-
-
-def get_dicom_dict(log: Log, summary: Summary):
-    return {
-        'DicomArchiveID': summary.info.study_uid,
-        'PatientID': summary.info.patient.id,
-        'PatientName': summary.info.patient.name,
-        'PatientDoB': lib.dicom.text.write_date_none(summary.info.patient.birth_date),
-        'PatientSex': summary.info.patient.sex,
-        'neurodbCenterName': None,
-        'CenterName': summary.info.institution or '',
-        'LastUpdate': None,
-        'DateAcquired': lib.dicom.text.write_date_none(summary.info.scan_date),
-        'DateLastArchived': lib.dicom.text.write_datetime(datetime.now()),
-        'AcquisitionCount': len(summary.acquis),
-        'NonDicomFileCount': len(summary.other_files),
-        'DicomFileCount': len(summary.dicom_files),
-        'md5sumDicomOnly': log.tarball_md5_sum,
-        'md5sumArchive': log.archive_md5_sum,
-        'CreatingUser': log.creator_name,
-        'sumTypeVersion': log.summary_version,
-        'tarTypeVersion': log.archive_version,
-        'SourceLocation': log.source_path,
-        'ArchiveLocation': log.target_path,
-        'ScannerManufacturer': summary.info.scanner.manufacturer,
-        'ScannerModel': summary.info.scanner.model,
-        'ScannerSerialNumber': summary.info.scanner.serial_number,
-        'ScannerSoftwareVersion': summary.info.scanner.software_version,
-        'SessionID': None,
-        'uploadAttempt': 0,
-        'CreateInfo': lib.dicom.dicom_log.write_to_string(log),
-        'AcquisitionMetadata': lib.dicom.summary_write.write_to_string(summary),
-        'DateSent': None,
-        'PendingTransfer': 0,
-    }
-
-
-def insert(db: Database, log: Log, summary: Summary):
+def insert(db: Session, log: Log, summary: Summary):
     """
     Insert a DICOM archive into the database.
 
-    :param db: The database.
+    :param db: The database session.
     :param log: The archiving log of the DICOM archive.
     :param summary: The summary of the DICOM archive.
+
+    :returns: The newly created and inserted DICOM archive ORM object.
     """
-    dicom_dict = get_dicom_dict(log, summary)
-    dicom_dict['DateFirstArchived'] = lib.dicom.text.write_datetime(datetime.now()),
-    archive_id = insert_dict(db, 'tarchive', dicom_dict)
-    insert_files_series(db, archive_id, summary)
+    dicom_archive = DicomArchive()
+    populate_dicom_archive(dicom_archive, log, summary)
+    dicom_archive.date_first_archived = datetime.now()
+    db.add(dicom_archive)
+    insert_files_series(db, dicom_archive, summary)
+    return dicom_archive
 
 
-def insert_files_series(db: Database, archive_id: int, summary: Summary):
+def insert_files_series(db: Session, dicom_archive: DicomArchive, summary: Summary):
     for acqui in summary.acquis:
-        insert_dict(db, 'tarchive_series', {
-            'TarchiveID': archive_id,
-            'SeriesNumber': acqui.series_number,
-            'SeriesDescription': acqui.series_description,
-            'SequenceName': acqui.sequence_name,
-            'EchoTime': acqui.echo_time,
-            'RepetitionTime': acqui.repetition_time,
-            'InversionTime': acqui.inversion_time,
-            'SliceThickness': acqui.slice_thickness,
-            'PhaseEncoding': acqui.phase_encoding,
-            'NumberOfFiles': acqui.number_of_files,
-            'SeriesUID': acqui.series_uid,
-            'Modality': acqui.modality,
-        })
+        db.add(DicomArchiveSeries(
+            archive_id         = dicom_archive.id,
+            series_number      = acqui.series_number,
+            series_description = acqui.series_description,
+            sequence_name      = acqui.sequence_name,
+            echo_time          = acqui.echo_time,
+            repetition_time    = acqui.repetition_time,
+            inversion_time     = acqui.inversion_time,
+            slice_thickness    = acqui.slice_thickness,
+            phase_encoding     = acqui.phase_encoding,
+            number_of_files    = acqui.number_of_files,
+            series_uid         = acqui.series_uid,
+            modality           = acqui.modality,
+        ))
 
     for file in summary.dicom_files:
-        results = select_dict(db, ['TarchiveSeriesID'], 'tarchive_series', {
-            'SeriesUID': file.series_uid,
-            'EchoTime': file.echo_time,
-        })
+        query = select(DicomArchiveSeries.id).where(
+            (DicomArchiveSeries.series_uid == file.series_uid) &
+            (DicomArchiveSeries.series_number == file.series_number) &
+            (DicomArchiveSeries.echo_time == file.echo_time) &
+            (DicomArchiveSeries.sequence_name == file.sequence_name))
 
-        series_id = results[0]['TarchiveSeriesID']
+        series_id = db.execute(query).scalar_one()
 
-        insert_dict(db, 'tarchive_files', {
-            'TarchiveID': archive_id,
-            'SeriesNumber': file.series_number,
-            'FileNumber': file.file_number,
-            'EchoNumber': file.echo_number,
-            'SeriesDescription': file.series_description,
-            'Md5Sum': file.md5_sum,
-            'FileName': file.file_name,
-            'TarchiveSeriesID': series_id,
-        })
+        db.add(DicomArchiveFile(
+            archive_id         = dicom_archive.id,
+            series_number      = file.series_number,
+            file_number        = file.file_number,
+            echo_number        = file.echo_number,
+            series_description = file.series_description,
+            md5_sum            = file.md5_sum,
+            file_name          = file.file_name,
+            series_id          = series_id,
+        ))
 
 
-def update(db: Database, archive_id: int, log: Log, summary: Summary):
+def update(db: Session, dicom_archive: DicomArchive, log: Log, summary: Summary):
     """
     Insert a DICOM archive into the database.
 
-    :param db: The database.
-    :param archive_id: The ID of the archive to update.
+    :param db: The database session.
+    :param dicom_archive: The DICOM archive ORM object to update.
     :param log: The archiving log of the DICOM archive.
     :param summary: The summary of the DICOM archive.
     """
 
     # Delete the associated database DICOM files and series.
-    delete_dict(db, 'tarchive_files',  {'TarchiveID': archive_id})
-    delete_dict(db, 'tarchive_series', {'TarchiveID': archive_id})
+    db.execute(delete(DicomArchiveFile).where(DicomArchiveFile.archive_id == dicom_archive.id))
+    db.execute(delete(DicomArchiveSeries).where(DicomArchiveSeries.archive_id == dicom_archive.id))
 
     # Update the database record with the new DICOM information.
-    dicom_dict = get_dicom_dict(log, summary)
-    update_dict(db, 'tarchive', {'TarchiveID': archive_id}, dicom_dict)
+    populate_dicom_archive(dicom_archive, log, summary)
 
     # Insert the new DICOM files and series.
-    insert_files_series(db, archive_id, summary)
+    insert_files_series(db, dicom_archive, summary)
+
+
+def upload(dicom_archive: DicomArchive, mri_upload: MriUpload):
+    """
+    Associate a DICOM archvie to a MRI upload.
+
+    :param dicom_archive: The DICOM archive ORM object.
+    :param mri_upload: The MRI upload ORM object.
+    """
+    mri_upload.dicom_archive_id = dicom_archive.id
