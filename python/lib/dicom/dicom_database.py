@@ -160,6 +160,7 @@ def insert(db: Db, log: Log, summary: Summary, session_id: int | None):
     populate_dicom_archive(dicom_archive, log, summary, session_id)
     dicom_archive.date_first_archived = datetime.now()
     db.add(dicom_archive)
+    db.flush() # Needed to populate the auto-increment ID of the archive.
     insert_files_series(db, dicom_archive, summary)
     return dicom_archive
 

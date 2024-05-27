@@ -1,7 +1,6 @@
 from datetime import date, datetime
 from lib.db.base import Base
-from sqlalchemy import select
-from sqlalchemy.orm import Mapped, Session as Db, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 from typing import Optional
 
 

@@ -293,7 +293,10 @@ if db_session:
     session_id = lib.dicom.dicom_database.get_session_id_with_cand_visit(db, cand_id, visit_label)
 
     if session_id == None:
-        print_warning(f'No session found for patient name \'{summary.info.patient.name}\'.')
+        print_warning((
+            f'No session found in the database for patient name \'{summary.info.patient.name}\' '
+            f'and visit label \'{visit_label}\'.'
+        ))
 else:
     session_id = None
 
