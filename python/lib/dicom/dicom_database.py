@@ -4,31 +4,17 @@ from lib.db.orm.dicom_archive import DicomArchive
 from lib.db.orm.dicom_archive_file import DicomArchiveFile
 from lib.db.orm.dicom_archive_series import DicomArchiveSeries
 from lib.db.orm.mri_upload import MriUpload
-from lib.dicom.summary_type import Summary
+from lib.db.orm.session import Session
+from lib.dicom.summary_type import DicomFile, Summary
 from lib.dicom.dicom_log import Log
 from sqlalchemy import select, delete
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session as Db
 import lib.dicom.text
 import lib.dicom.summary_write
 import lib.dicom.dicom_log
 
 
-def get_archive_with_study_uid(db: Session, study_uid: str):
-    """
-    Get the DICOM archive ORM object associated with a given study UID if there
-    is one in the database.
-
-    :param db: The database session.
-    :param study_uid: The DICOM archive study UID.
-
-    :returns: The DICOM archive ORM object or `None`.
-    """
-
-    query = select(DicomArchive).where(DicomArchive.study_uid == study_uid)
-    return db.execute(query).scalar_one_or_none()
-
-
-def get_mri_upload(db: Session, id: int):
+def get_mri_upload(db: Db, id: int):
     """
     Get the MRI upload ORM object associated with a given ID if there is one in
     the database.
@@ -39,10 +25,53 @@ def get_mri_upload(db: Session, id: int):
     :returns: The MRI upload ORM object or `None`.
     """
 
-    query = select(MriUpload).where(MriUpload.id == id)
-    return db.execute(query).scalar_one_or_none()
+    return db.execute(select(MriUpload)
+        .where(MriUpload.id == id)
+    ).scalar_one_or_none()
 
-def populate_dicom_archive(dicom_archive: DicomArchive, log: Log, summary: Summary):
+
+def get_dicom_archive_with_study_uid(db: Db, study_uid: str):
+    """
+    Get the DICOM archive ORM object associated with a given study UID if there
+    is one in the database.
+
+    :param db: The database session.
+    :param study_uid: The DICOM archive study UID.
+
+    :returns: The DICOM archive ORM object or `None`.
+    """
+
+    return db.execute(select(DicomArchive)
+        .where(DicomArchive.study_uid == study_uid)
+    ).scalar_one_or_none()
+
+def get_dicom_archives_series_id_with_file(db: Db, file: DicomFile):
+    return db.execute(select(DicomArchiveSeries.id)
+        .where(DicomArchiveSeries.series_uid == file.series_uid)
+        .where(DicomArchiveSeries.series_number == file.series_number)
+        .where(DicomArchiveSeries.echo_time == file.echo_time)
+        .where(DicomArchiveSeries.sequence_name == file.sequence_name)
+    ).scalar_one()
+
+
+def get_session_id_with_cand_visit(db: Db, cand_id: int, visit_label: str):
+    """
+    Get the session associated with a candidate ID and a visit label.
+
+    :param db: The database session.
+    :param cand_id: The candidate ID.
+    :param visit_label:  The visit label.
+
+    :returns: The session ID or `None`.
+    """
+
+    return db.execute(select(Session.id)
+        .where(Session.cand_id == cand_id)
+        .where(Session.visit_label == visit_label)
+    ).scalar_one_or_none()
+
+
+def populate_dicom_archive(dicom_archive: DicomArchive, log: Log, summary: Summary, session_id: int | None):
     """
     Populate a DICOM archive ORM object with information from its archiving log
     and DICOM summary.
@@ -50,7 +79,9 @@ def populate_dicom_archive(dicom_archive: DicomArchive, log: Log, summary: Summa
     :param dicom_archive: The DICOM archive ORM object to populate.
     :param log: The DICOM arching log object.
     :param summary: The DICOM summary object.
+    :param session_id: The optional session ID associated with the DICOM archive.
     """
+
     dicom_archive.study_uid                = str(summary.info.study_uid)
     dicom_archive.patient_id               = summary.info.patient.id
     dicom_archive.patient_name             = str(summary.info.patient.name)
@@ -75,7 +106,7 @@ def populate_dicom_archive(dicom_archive: DicomArchive, log: Log, summary: Summa
     dicom_archive.scanner_model            = summary.info.scanner.model
     dicom_archive.scanner_serial_number    = summary.info.scanner.serial_number
     dicom_archive.scanner_software_version = summary.info.scanner.software_version
-    dicom_archive.session_id               = None
+    dicom_archive.session_id               = session_id
     dicom_archive.upload_attempt           = 0
     dicom_archive.create_info              = lib.dicom.dicom_log.write_to_string(log)
     dicom_archive.acquisition_metadata     = lib.dicom.summary_write.write_to_string(summary)
@@ -83,25 +114,7 @@ def populate_dicom_archive(dicom_archive: DicomArchive, log: Log, summary: Summa
     dicom_archive.pending_transfer         = 0
 
 
-def insert(db: Session, log: Log, summary: Summary):
-    """
-    Insert a DICOM archive into the database.
-
-    :param db: The database session.
-    :param log: The archiving log of the DICOM archive.
-    :param summary: The summary of the DICOM archive.
-
-    :returns: The newly created and inserted DICOM archive ORM object.
-    """
-    dicom_archive = DicomArchive()
-    populate_dicom_archive(dicom_archive, log, summary)
-    dicom_archive.date_first_archived = datetime.now()
-    db.add(dicom_archive)
-    insert_files_series(db, dicom_archive, summary)
-    return dicom_archive
-
-
-def insert_files_series(db: Session, dicom_archive: DicomArchive, summary: Summary):
+def insert_files_series(db: Db, dicom_archive: DicomArchive, summary: Summary):
     for acqui in summary.acquis:
         db.add(DicomArchiveSeries(
             archive_id         = dicom_archive.id,
@@ -119,14 +132,7 @@ def insert_files_series(db: Session, dicom_archive: DicomArchive, summary: Summa
         ))
 
     for file in summary.dicom_files:
-        query = select(DicomArchiveSeries.id).where(
-            (DicomArchiveSeries.series_uid == file.series_uid) &
-            (DicomArchiveSeries.series_number == file.series_number) &
-            (DicomArchiveSeries.echo_time == file.echo_time) &
-            (DicomArchiveSeries.sequence_name == file.sequence_name))
-
-        series_id = db.execute(query).scalar_one()
-
+        series_id = get_dicom_archives_series_id_with_file(db, file)
         db.add(DicomArchiveFile(
             archive_id         = dicom_archive.id,
             series_number      = file.series_number,
@@ -139,7 +145,26 @@ def insert_files_series(db: Session, dicom_archive: DicomArchive, summary: Summa
         ))
 
 
-def update(db: Session, dicom_archive: DicomArchive, log: Log, summary: Summary):
+def insert(db: Db, log: Log, summary: Summary, session_id: int | None):
+    """
+    Insert a DICOM archive into the database.
+
+    :param db: The database session.
+    :param log: The archiving log of the DICOM archive.
+    :param summary: The summary of the DICOM archive.
+    :param session_id: The optional session ID of the DICOM archive.
+
+    :returns: The newly created and inserted DICOM archive ORM object.
+    """
+    dicom_archive = DicomArchive()
+    populate_dicom_archive(dicom_archive, log, summary, session_id)
+    dicom_archive.date_first_archived = datetime.now()
+    db.add(dicom_archive)
+    insert_files_series(db, dicom_archive, summary)
+    return dicom_archive
+
+
+def update(db: Db, dicom_archive: DicomArchive, log: Log, summary: Summary, session_id: int | None):
     """
     Insert a DICOM archive into the database.
 
@@ -147,6 +172,7 @@ def update(db: Session, dicom_archive: DicomArchive, log: Log, summary: Summary)
     :param dicom_archive: The DICOM archive ORM object to update.
     :param log: The archiving log of the DICOM archive.
     :param summary: The summary of the DICOM archive.
+    :param session_id: The optional session ID of the DICOM archive.
     """
 
     # Delete the associated database DICOM files and series.
@@ -154,7 +180,7 @@ def update(db: Session, dicom_archive: DicomArchive, log: Log, summary: Summary)
     db.execute(delete(DicomArchiveSeries).where(DicomArchiveSeries.archive_id == dicom_archive.id))
 
     # Update the database record with the new DICOM information.
-    populate_dicom_archive(dicom_archive, log, summary)
+    populate_dicom_archive(dicom_archive, log, summary, session_id)
 
     # Insert the new DICOM files and series.
     insert_files_series(db, dicom_archive, summary)

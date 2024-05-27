@@ -12,14 +12,14 @@ import tarfile
 from lib.db.database import connect_to_db
 from lib.db.orm.dicom_archive import DicomArchive
 from lib.db.orm.mri_upload import MriUpload
+import lib.database
 import lib.dicom.dicom_database
 import lib.dicom.dicom_log
 import lib.dicom.summary_make
 import lib.dicom.summary_write
 import lib.dicom.text
 import lib.exitcode
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session as Db
 
 
 def print_error_exit(message: str, code: int):
@@ -128,6 +128,14 @@ parser.add_argument(
         'already be inserted), generally used with \'--overwrite\''))
 
 parser.add_argument(
+    '--db-session',
+    action='store_true',
+    help=(
+        'Update the DICOM archive in the database to add the session ID determined '
+        'using the LORIS configuration.')
+)
+
+parser.add_argument(
     '--db-upload',
     action='store',
     type=int,
@@ -149,16 +157,17 @@ args = parser.parse_args()
 
 # Typed arguments
 
-profile:   str | None = args.profile
-source:    str        = args.source
-target:    str        = args.target
-verbose:   bool       = args.verbose
-today:     bool       = args.today
-year:      bool       = args.year
-overwrite: bool       = args.overwrite
-db_insert: bool       = args.db_insert
-db_update: bool       = args.db_update
-db_upload: int | None = args.db_upload
+profile:    str | None = args.profile
+source:     str        = args.source
+target:     str        = args.target
+verbose:    bool       = args.verbose
+today:      bool       = args.today
+year:       bool       = args.year
+overwrite:  bool       = args.overwrite
+db_insert:  bool       = args.db_insert
+db_update:  bool       = args.db_update
+db_session: bool       = args.db_session
+db_upload:  int | None = args.db_upload
 
 # Check arguments
 
@@ -168,13 +177,13 @@ if db_insert and db_update:
         lib.exitcode.INVALID_ARG,
     )
 
-if db_upload is not None and not (db_insert or db_update):
+if (db_session or db_upload is not None) and not (db_insert or db_update):
     print_error_exit(
-        'Arguments \'--db-insert\' or \'--db-update\' must be set when \'--db-upload\' is set.',
+        'Arguments \'--db-insert\' or \'--db-update\' must be set when \'--db-session\' or \'--db-upload\' is set.',
         lib.exitcode.INVALID_ARG,
     )
 
-if (db_insert or db_update or db_upload is not None) and not profile:
+if (db_insert or db_update or db_session or db_upload is not None) and not profile:
     print_error_exit(
         'Argument \'--profile\' must be set when a \'--db-*\' argument is set.',
         lib.exitcode.INVALID_ARG,
@@ -192,11 +201,27 @@ if not os.path.isdir(target) or not os.access(target, os.W_OK):
         lib.exitcode.INVALID_ARG,
     )
 
+# Load configuration
+
+config = load_config_file(args.profile)
+
 # Connect to database (if needed)
 
 db = None
 if profile is not None:
-    db = connect_to_db(load_config_file(args.profile).mysql)
+    db = connect_to_db(config.mysql)
+
+# Load subject IDs (if needed)
+
+if db_session is not None:
+    old_db = lib.database.Database(config.mysql, verbose)
+    try:
+        get_subject_ids = config.get_subject_ids
+    except AttributeError:
+        print_error_exit(
+            'Config file does not contain a `get_subject_ids` function.',
+            lib.exitcode.BAD_CONFIG_SETTING,
+        )
 
 # Check paths
 
@@ -220,7 +245,8 @@ check_create_file(log_path)
 # Placeholder for type checker
 mri_upload = None
 if db_upload is not None:
-    db = cast(Session, db)
+    db = cast(Db, db)
+
     mri_upload = lib.dicom.dicom_database.get_mri_upload(db, db_upload)
     if mri_upload is None:
         print_error_exit(
@@ -237,7 +263,7 @@ dicom_archive = None
 if db is not None:
     print('Checking database presence')
 
-    dicom_archive = lib.dicom.dicom_database.get_archive_with_study_uid(db, summary.info.study_uid)
+    dicom_archive = lib.dicom.dicom_database.get_dicom_archive_with_study_uid(db, summary.info.study_uid)
 
     if db_insert and dicom_archive is not None:
         print_error_exit(
@@ -254,6 +280,22 @@ if db is not None:
             f'No study \'{summary.info.study_uid}\' found in the database',
             lib.exitcode.UPDATE_FAILURE,
         )
+
+
+if db_session:
+    db = cast(Db, db)
+
+    print('Determining session ID')
+
+    ids = config.get_subject_ids(old_db, summary.info.patient.name)
+    cand_id     = ids['CandID']
+    visit_label = ids['visitLabel']
+    session_id = lib.dicom.dicom_database.get_session_id_with_cand_visit(db, cand_id, visit_label)
+
+    if session_id == None:
+        print_warning(f'No session found for patient name \'{summary.info.patient.name}\'.')
+else:
+    session_id = None
 
 print('Copying into DICOM tar')
 
@@ -346,12 +388,12 @@ log.archive_md5_sum = lib.dicom.text.make_hash(log.target_path, True)
 if db:
     if db_insert:
         print('Inserting DICOM archive in the database')
-        dicom_archive = lib.dicom.dicom_database.insert(db, log, summary)
+        dicom_archive = lib.dicom.dicom_database.insert(db, log, summary, session_id)
 
     if db_update:
         print('Updating DICOM archive in the database')
         dicom_archive = cast(DicomArchive, dicom_archive)
-        lib.dicom.dicom_database.update(db, dicom_archive, log, summary)
+        lib.dicom.dicom_database.update(db, dicom_archive, log, summary, session_id)
 
     if db_upload is not None:
         print('Updating MRI upload in the database')

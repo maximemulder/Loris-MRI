@@ -40,7 +40,7 @@ class DicomArchive(Base):
     scanner_model            : Mapped[str]                = mapped_column('ScannerModel')
     scanner_serial_number    : Mapped[str]                = mapped_column('ScannerSerialNumber')
     scanner_software_version : Mapped[str]                = mapped_column('ScannerSoftwareVersion')
-    session_id               : Mapped[Optional[str]]      = mapped_column('SessionID')
+    session_id               : Mapped[Optional[int]]      = mapped_column('SessionID')
     upload_attempt           : Mapped[int]                = mapped_column('uploadAttempt')
     create_info              : Mapped[Optional[str]]      = mapped_column('CreateInfo')
     acquisition_metadata     : Mapped[str]                = mapped_column('AcquisitionMetadata')
