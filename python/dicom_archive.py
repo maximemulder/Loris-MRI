@@ -169,6 +169,9 @@ db_update:  bool       = args.db_update
 db_session: bool       = args.db_session
 db_upload:  int | None = args.db_upload
 
+source = os.path.abspath(source)
+target = os.path.abspath(target)
+
 # Check arguments
 
 if db_insert and db_update:
@@ -224,9 +227,6 @@ if db_session is not None:
         )
 
 # Check paths
-
-while source.endswith('/'):
-    source = source[:-1]
 
 base_name = os.path.basename(source)
 
@@ -304,7 +304,7 @@ print('Copying into DICOM tar')
 
 with tarfile.open(tar_path, 'w') as tar:
     for file in os.listdir(source):
-        tar.add(source + '/' + file)
+        tar.add(f'{source}/{file}')
 
 print('Calculating DICOM tar MD5 sum')
 
@@ -330,6 +330,8 @@ if not today and summary.info.scan_date is None:
 
 scan_date = date.today() if today else summary.info.scan_date
 
+archive_path = ''
+
 if year:
     if not scan_date:
         print_error_exit(
@@ -339,24 +341,27 @@ if year:
 
     scan_date = cast(date, scan_date)
 
-    dir_path = f'{target}/{scan_date.year}'
-    if not os.path.exists(dir_path):
-        print(f'Creating directory \'{dir_path}\'')
-        os.mkdir(dir_path)
-    elif not os.path.isdir(dir_path) or not os.access(dir_path, os.W_OK):
+    year_path = f'{target}/{scan_date.year}'
+    if not os.path.exists(year_path):
+        print(f'Creating directory \'{year_path}\'')
+        os.mkdir(year_path)
+    elif not os.path.isdir(year_path) or not os.access(year_path, os.W_OK):
         print_error_exit(
-            f'Path \'{dir_path}\' exists but is not a writable directory.',
+            f'Path \'{year_path}\' exists but is not a writable directory.',
             lib.exitcode.CREATE_DIR_FAILURE,
         )
-else:
-    dir_path = target
+
+    archive_path += f'{scan_date.year}/'
 
 scan_date_string = lib.dicom.text.write_date_none(scan_date) or ''
-archive_path = f'{dir_path}/DCM_{scan_date_string}_{base_name}.tar'
 
-check_create_file(archive_path)
+archive_path += f'DCM_{scan_date_string}_{base_name}.tar'
 
-log = lib.dicom.dicom_log.make(source, archive_path, tarball_md5_sum, zipball_md5_sum)
+final_path = f'{target}/{archive_path}'
+
+check_create_file(final_path)
+
+log = lib.dicom.dicom_log.make(source, final_path, tarball_md5_sum, zipball_md5_sum)
 
 if verbose:
     print('The archive will be created with the following arguments:')
@@ -372,7 +377,7 @@ lib.dicom.dicom_log.write_to_file(log_path, log)
 
 print('Copying into DICOM archive')
 
-with tarfile.open(archive_path, 'w') as tar:
+with tarfile.open(final_path, 'w') as tar:
     tar.add(zip_path,     os.path.basename(zip_path))
     tar.add(summary_path, os.path.basename(summary_path))
     tar.add(log_path,     os.path.basename(log_path))
@@ -391,12 +396,12 @@ log.archive_md5_sum = lib.dicom.text.make_hash(log.target_path, True)
 if db:
     if db_insert:
         print('Inserting DICOM archive in the database')
-        dicom_archive = lib.dicom.dicom_database.insert(db, log, summary, session_id)
+        dicom_archive = lib.dicom.dicom_database.insert(db, log, summary, archive_path, session_id)
 
     if db_update:
         print('Updating DICOM archive in the database')
         dicom_archive = cast(DicomArchive, dicom_archive)
-        lib.dicom.dicom_database.update(db, dicom_archive, log, summary, session_id)
+        lib.dicom.dicom_database.update(db, dicom_archive, log, summary, archive_path, session_id)
 
     if db_upload is not None:
         print('Updating MRI upload in the database')

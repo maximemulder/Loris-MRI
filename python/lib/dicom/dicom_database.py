@@ -71,7 +71,13 @@ def get_session_id_with_cand_visit(db: Db, cand_id: int, visit_label: str):
     ).scalar_one_or_none()
 
 
-def populate_dicom_archive(dicom_archive: DicomArchive, log: Log, summary: Summary, session_id: int | None):
+def populate_dicom_archive(
+    dicom_archive: DicomArchive,
+    log: Log,
+    summary: Summary,
+    archive_path: str,
+    session_id: int | None,
+):
     """
     Populate a DICOM archive ORM object with information from its archiving log
     and DICOM summary.
@@ -101,7 +107,7 @@ def populate_dicom_archive(dicom_archive: DicomArchive, log: Log, summary: Summa
     dicom_archive.sum_type_version         = log.summary_version
     dicom_archive.tar_type_version         = log.archive_version
     dicom_archive.source_location          = log.source_path
-    dicom_archive.archive_location         = log.target_path
+    dicom_archive.archive_location         = archive_path
     dicom_archive.scanner_manufacturer     = summary.info.scanner.manufacturer
     dicom_archive.scanner_model            = summary.info.scanner.model
     dicom_archive.scanner_serial_number    = summary.info.scanner.serial_number
@@ -145,7 +151,13 @@ def insert_files_series(db: Db, dicom_archive: DicomArchive, summary: Summary):
         ))
 
 
-def insert(db: Db, log: Log, summary: Summary, session_id: int | None):
+def insert(
+    db: Db,
+    log: Log,
+    summary: Summary,
+    archive_path: str,
+    session_id: int | None,
+):
     """
     Insert a DICOM archive into the database.
 
@@ -157,7 +169,7 @@ def insert(db: Db, log: Log, summary: Summary, session_id: int | None):
     :returns: The newly created and inserted DICOM archive ORM object.
     """
     dicom_archive = DicomArchive()
-    populate_dicom_archive(dicom_archive, log, summary, session_id)
+    populate_dicom_archive(dicom_archive, log, summary, archive_path, session_id)
     dicom_archive.date_first_archived = datetime.now()
     db.add(dicom_archive)
     db.flush() # Needed to populate the auto-increment ID of the archive.
@@ -165,7 +177,14 @@ def insert(db: Db, log: Log, summary: Summary, session_id: int | None):
     return dicom_archive
 
 
-def update(db: Db, dicom_archive: DicomArchive, log: Log, summary: Summary, session_id: int | None):
+def update(
+    db: Db,
+    dicom_archive: DicomArchive,
+    log: Log,
+    summary: Summary,
+    archive_path: str,
+    session_id: int | None,
+):
     """
     Insert a DICOM archive into the database.
 
@@ -181,7 +200,7 @@ def update(db: Db, dicom_archive: DicomArchive, log: Log, summary: Summary, sess
     db.execute(delete(DicomArchiveSeries).where(DicomArchiveSeries.archive_id == dicom_archive.id))
 
     # Update the database record with the new DICOM information.
-    populate_dicom_archive(dicom_archive, log, summary, session_id)
+    populate_dicom_archive(dicom_archive, log, summary, archive_path, session_id)
 
     # Insert the new DICOM files and series.
     insert_files_series(db, dicom_archive, summary)
