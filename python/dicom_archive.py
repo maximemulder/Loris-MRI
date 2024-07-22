@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from datetime import date
-from typing import cast
+from typing import Any, cast
 import argparse
 import gzip
 import os
@@ -9,6 +9,7 @@ import shutil
 import sys
 import tarfile
 
+from lib.database import Database
 from lib.db.database import connect_to_db
 from lib.db.orm.dicom_archive import DicomArchive
 from lib.db.orm.mri_upload import MriUpload
@@ -204,19 +205,18 @@ if not os.path.isdir(target) or not os.access(target, os.W_OK):
         lib.exitcode.INVALID_ARG,
     )
 
-# Load configuration
-
-config = load_config_file(args.profile)
-
 # Connect to database (if needed)
-
+config = None
 db = None
 if profile is not None:
+    config = load_config_file(args.profile)
     db = connect_to_db(config.mysql)
 
 # Load subject IDs (if needed)
-
-if db_session is not None:
+old_db = None
+get_subject_ids = None
+if db_session:
+    config = cast(Any, config)
     old_db = lib.database.Database(config.mysql, verbose)
     try:
         get_subject_ids = config.get_subject_ids
@@ -284,10 +284,12 @@ if db is not None:
 
 if db_session:
     db = cast(Db, db)
+    old_db = cast(Database, old_db)
+    get_subject_ids = cast(Any, get_subject_ids)
 
     print('Determining session ID')
 
-    ids = config.get_subject_ids(old_db, summary.info.patient.name)
+    ids = get_subject_ids(old_db, summary.info.patient.name)
     cand_id     = ids['CandID']
     visit_label = ids['visitLabel']
     session_id = lib.dicom.dicom_database.get_session_id_with_cand_visit(db, cand_id, visit_label)
