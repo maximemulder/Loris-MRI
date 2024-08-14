@@ -534,13 +534,13 @@ class Imaging:
         subject_name = tarchive_info_dict[dicom_header]
 
         try:
-            subject_dict = self.config_file.get_subject_ids(self.db, subject_name, scanner_id)
+            subject = self.config_file.get_subject_ids(self.db, subject_name, scanner_id)
         except AttributeError:
             raise DetermineSubjectException(
                 'Config file does not contain a `get_subject_ids` function. Upload will exit now.'
             )
 
-        if subject_dict == {}:
+        if subject is None:
             raise DetermineSubjectException(
                 f'Cannot get subject IDs for subject \'{subject_name}\'.\n'
                 'Possible causes:\n'
@@ -548,23 +548,6 @@ class Imaging:
                 '- The function `get_subject_ids` in the Python configuration file is not properly defined.\n'
                 '- Other project specific reason.'
             )
-
-        if subject_dict['createVisitLabel']:
-            create_visit = CreateVisitConfig(
-                subject_dict['ProjectID'],
-                subject_dict['CohortID'],
-            )
-        else:
-            create_visit = None
-
-        subject = SubjectConfig(
-            subject_name,
-            bool(subject_dict['isPhantom']),
-            subject_dict['PSCID'],
-            int(subject_dict['CandID']),
-            subject_dict['visitLabel'],
-            create_visit,
-        )
 
         return subject
 
