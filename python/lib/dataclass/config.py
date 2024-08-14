@@ -15,7 +15,7 @@ class DatabaseConfig:
     username: str
     password: str
     database: str
-    port:     int = 3306 # Default database port.
+    port:     int = 3306  # Default database port.
 
 
 @dataclass
@@ -26,8 +26,8 @@ class S3Config:
 
     aws_access_key_id:     str
     aws_secret_access_key: str
-    aws_s3_endpoint_url:   str | None = None # None # Can also be obtained from the database.
-    aws_s3_bucket_name:    str | None = None # Can also be obtained from the database.
+    aws_s3_endpoint_url:   str | None = None  # None # Can also be obtained from the database.
+    aws_s3_bucket_name:    str | None = None  # Can also be obtained from the database.
 
 
 @dataclass

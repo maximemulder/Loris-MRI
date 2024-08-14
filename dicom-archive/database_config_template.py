@@ -14,6 +14,7 @@ mysql: DatabaseConfig = DatabaseConfig(
     port     = 3306,
 )
 
+# This statement can be omitted if the project does not use AWS S3.
 s3: S3Config = S3Config(
     aws_access_key_id     = 'AWS_ACCESS_KEY_ID',
     aws_secret_access_key = 'AWS_SECRET_ACCESS_KEY',
@@ -25,8 +26,8 @@ s3: S3Config = S3Config(
 def get_subject_ids(db: Database, subject_name: str, scanner_id: int | None = None) -> SubjectConfig | None:
     imaging = Imaging(db, False)
 
-    phantom_match   = re.search('(pha)|(test)', subject_name, re.IGNORECASE)
-    candidate_match = re.search('([^_]+)_(\d+)_([^_]+)', subject_name, re.IGNORECASE)
+    phantom_match   = re.search(r'(pha)|(test)', subject_name, re.IGNORECASE)
+    candidate_match = re.search(r'([^_]+)_(\d+)_([^_]+)', subject_name, re.IGNORECASE)
 
     if phantom_match:
         return SubjectConfig(
