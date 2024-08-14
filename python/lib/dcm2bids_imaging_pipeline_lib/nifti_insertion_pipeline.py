@@ -84,17 +84,14 @@ class NiftiInsertionPipeline(BasePipeline):
         # ---------------------------------------------------------------------------------------------
         if self.dicom_archive_obj.tarchive_info_dict.keys():
             self._validate_nifti_patient_name_with_dicom_patient_name()
-            subject_config = self.imaging_obj.determine_subject_ids(
+            self.subject = self.imaging_obj.determine_subject_ids(
                 self.dicom_archive_obj.tarchive_info_dict, self.scanner_id
             )
-
-            self.subject = subject_config.subject
-            self.create_visit = subject_config.create_visit
         else:
             self._determine_subject_ids_based_on_json_patient_name()
 
         try:
-            validate_subject_ids(self.db, self.verbose, self.subject, self.create_visit)
+            validate_subject_ids(self.db, self.verbose, self.subject)
         except ValidateSubjectException as exception:
             self.imaging_obj.insert_mri_candidate_errors(
                 self.dicom_archive_obj.tarchive_info_dict['PatientName'],
@@ -322,9 +319,7 @@ class NiftiInsertionPipeline(BasePipeline):
         dicom_value = self.json_file_dict[dicom_header]
 
         try:
-            subject_config = self.imaging_obj.determine_subject_ids(dicom_value)
-            self.subject = subject_config.subject
-            self.create_visit = subject_config.create_visit
+            self.subject = self.imaging_obj.determine_subject_ids(dicom_value)
         except DetermineSubjectException as exception:
             self.log_error_and_exit(
                 exception.message,

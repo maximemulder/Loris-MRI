@@ -1,12 +1,11 @@
 from lib.database import Database
 from lib.database_lib.candidate_db import CandidateDB
 from lib.database_lib.visit_windows import VisitWindows
-from lib.dataclass.create_visit import CreateVisit
-from lib.dataclass.subject import Subject
+from lib.dataclass.config import SubjectConfig
 from lib.exception.validate_subject_exception import ValidateSubjectException
 
 
-def validate_subject_ids(db: Database, verbose: bool, subject: Subject, create_visit: CreateVisit | None):
+def validate_subject_ids(db: Database, verbose: bool, subject: SubjectConfig):
     """
     Validate a subject's information against the database from its parts (PSCID, CandID, VisitLabel).
     Raise an exception if an error is found, or return `None` otherwise.
@@ -29,12 +28,12 @@ def validate_subject_ids(db: Database, verbose: bool, subject: Subject, create_v
 
     visit_window_db = VisitWindows(db, verbose)
     visit_window_exists = visit_window_db.check_visit_label_exists(subject.visit_label)
-    if not visit_window_exists and create_visit is not None:
+    if not visit_window_exists and subject.create_visit is not None:
         validate_subject_error(
             subject,
             f'Visit label \'{subject.visit_label}\' does not exist in the database (table `Visit_Windows`).'
         )
 
 
-def validate_subject_error(subject: Subject, message: str):
+def validate_subject_error(subject: SubjectConfig, message: str):
     raise ValidateSubjectException(f'Validation error for subject \'{subject.name}\'.\n{message}')

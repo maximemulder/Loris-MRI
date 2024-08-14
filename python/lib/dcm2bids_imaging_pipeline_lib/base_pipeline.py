@@ -4,7 +4,7 @@ import shutil
 import sys
 from typing import cast
 
-from lib.dataclass.create_visit import CreateVisit
+from lib.dataclass.config import CreateVisitConfig
 from lib.exception.determine_subject_exception import DetermineSubjectException
 from lib.exception.validate_subject_exception import ValidateSubjectException
 import lib.exitcode
@@ -109,9 +109,7 @@ class BasePipeline:
         # ---------------------------------------------------------------------------------
         if self.dicom_archive_obj.tarchive_info_dict.keys():
             try:
-                config = self.imaging_obj.determine_subject_ids(self.dicom_archive_obj.tarchive_info_dict)
-                self.subject = config.subject
-                self.create_visit = config.create_visit
+                self.subject = self.imaging_obj.determine_subject_ids(self.dicom_archive_obj.tarchive_info_dict)
             except DetermineSubjectException as exception:
                 self.log_error_and_exit(
                     exception.message,
@@ -245,7 +243,7 @@ class BasePipeline:
             return
 
         try:
-            validate_subject_ids(self.db, self.verbose, self.subject, self.create_visit)
+            validate_subject_ids(self.db, self.verbose, self.subject)
 
             self.imaging_upload_obj.update_mri_upload(
                 upload_id=self.upload_id, fields=('IsCandidateInfoValidated',), values=('1',)
@@ -317,12 +315,12 @@ class BasePipeline:
         """
 
         # check if whether the visit label should be created
-        if self.create_visit is not None:
+        if self.subject.create_visit is not None:
             message = f"Visit {self.subject.visit_label} for candidate {self.subject.cand_id} does not exist."
             self.log_error_and_exit(message, lib.exitcode.GET_SESSION_ID_FAILURE, is_error="Y", is_verbose="N")
 
         # NOTE: This is safe because the above `if` statement exits if `self.create_visit` is `None`.
-        create_visit = cast(CreateVisit, self.create_visit)
+        create_visit = cast(CreateVisitConfig, self.subject.create_visit)
 
         # check that the project ID and cohort ID refers to an existing row in project_cohort_rel table
         self.session_obj.create_proj_cohort_rel_info_dict(create_visit.project_id, create_visit.cohort_id)

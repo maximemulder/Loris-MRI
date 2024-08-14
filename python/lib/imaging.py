@@ -22,10 +22,8 @@ from lib.database_lib.mri_scanner import MriScanner
 from lib.database_lib.mri_violations_log import MriViolationsLog
 from lib.database_lib.parameter_file import ParameterFile
 from lib.database_lib.parameter_type import ParameterType
+from lib.dataclass.config import SubjectConfig, CreateVisitConfig
 from lib.exception.determine_subject_exception import DetermineSubjectException
-from python.lib.dataclass.create_visit import CreateVisit
-from python.lib.dataclass.subject import Subject
-from python.lib.dataclass.subject_config import SubjectConfig
 
 __license__ = "GPLv3"
 
@@ -551,23 +549,24 @@ class Imaging:
                 '- Other project specific reason.'
             )
 
-        subject = Subject(
-            subject_name,
-            bool(subject_dict['isPhantom']),
-            subject_dict['PSCID'],
-            int(subject_dict['CandID']),
-            subject_dict['visitLabel'],
-        )
-
         if subject_dict['createVisitLabel']:
-            create_visit = CreateVisit(
+            create_visit = CreateVisitConfig(
                 subject_dict['ProjectID'],
                 subject_dict['CohortID'],
             )
         else:
             create_visit = None
 
-        return SubjectConfig(subject, create_visit)
+        subject = SubjectConfig(
+            subject_name,
+            bool(subject_dict['isPhantom']),
+            subject_dict['PSCID'],
+            int(subject_dict['CandID']),
+            subject_dict['visitLabel'],
+            create_visit,
+        )
+
+        return subject
 
     def map_bids_param_to_loris_param(self, file_parameters):
         """
