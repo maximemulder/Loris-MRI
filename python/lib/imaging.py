@@ -22,7 +22,7 @@ from lib.database_lib.mri_scanner import MriScanner
 from lib.database_lib.mri_violations_log import MriViolationsLog
 from lib.database_lib.parameter_file import ParameterFile
 from lib.database_lib.parameter_type import ParameterType
-from lib.dataclass.config import SubjectConfig, CreateVisitConfig
+from lib.dataclass.config import SubjectConfig
 from lib.exception.determine_subject_exception import DetermineSubjectException
 
 __license__ = "GPLv3"
