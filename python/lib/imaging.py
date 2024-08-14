@@ -3,7 +3,7 @@
 import os
 import datetime
 import json
-from typing import Any, Optional
+from typing import Optional
 import lib.utilities as utilities
 import nibabel as nib
 import re
