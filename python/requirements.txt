@@ -19,3 +19,4 @@ scikit-learn
 scipy
 sqlalchemy>=2.0.0
 virtualenv
+requests
