@@ -30,10 +30,8 @@ def get_subject_ids(db: Database, subject_name: str, scanner_id: int | None = No
     candidate_match = re.search(r'([^_]+)_(\d+)_([^_]+)', subject_name, re.IGNORECASE)
 
     if phantom_match:
-        return SubjectConfig(
+        return SubjectConfig.from_phantom(
             name        = subject_name,
-            is_phantom  = True,
-            psc_id      = 'scanner',
             cand_id     = imaging.get_scanner_candid(scanner_id),
             visit_label = subject_name.strip(),
             create_visit = CreateVisitConfig(
@@ -42,9 +40,8 @@ def get_subject_ids(db: Database, subject_name: str, scanner_id: int | None = No
             ),
         )
     elif candidate_match:
-        return SubjectConfig(
+        return SubjectConfig.from_candidate(
             name        = subject_name,
-            is_phantom  = False,
             psc_id      = candidate_match.group(1),
             cand_id     = int(candidate_match.group(2)),
             visit_label = candidate_match.group(3),

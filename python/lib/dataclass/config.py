@@ -59,3 +59,22 @@ class SubjectConfig:
     # `CreateVisitConfig` means that a visit can be created automatically using the parameters
     # provided, `None` means that the visit needs to already exist in the database.
     create_visit: CreateVisitConfig | None
+
+    @staticmethod
+    def from_candidate(
+        name: str,
+        psc_id: str,
+        cand_id: int,
+        visit_label: str,
+        create_visit: CreateVisitConfig | None,
+    ):
+        return SubjectConfig(name, False, psc_id, cand_id, visit_label, create_visit)
+
+    @staticmethod
+    def from_phantom(
+        name: str,
+        cand_id: int,
+        visit_label: str,
+        create_visit: CreateVisitConfig | None,
+    ):
+        return SubjectConfig(name, True, 'scanner', cand_id, visit_label, create_visit)
