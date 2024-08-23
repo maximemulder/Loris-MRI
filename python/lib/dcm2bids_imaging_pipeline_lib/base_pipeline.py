@@ -5,6 +5,7 @@ import sys
 from typing import cast
 
 from lib.dataclass.config import CreateVisitConfig
+from lib.db.connect import connect_to_db
 from lib.exception.determine_subject_exception import DetermineSubjectException
 from lib.exception.validate_subject_exception import ValidateSubjectException
 import lib.exitcode
@@ -61,6 +62,8 @@ class BasePipeline:
         # ----------------------------------------------------
         self.db = Database(self.config_file.mysql, self.verbose)
         self.db.connect()
+
+        self.db_orm = connect_to_db(self.config_file.mysql)
 
         # -----------------------------------------------------------------------------------
         # Load the Config, Imaging, ImagingUpload, Tarchive, Session database classes
@@ -243,7 +246,7 @@ class BasePipeline:
             return
 
         try:
-            validate_subject_ids(self.db, self.verbose, self.subject)
+            validate_subject_ids(self.db_orm, self.verbose, self.subject)
 
             self.imaging_upload_obj.update_mri_upload(
                 upload_id=self.upload_id, fields=('IsCandidateInfoValidated',), values=('1',)
