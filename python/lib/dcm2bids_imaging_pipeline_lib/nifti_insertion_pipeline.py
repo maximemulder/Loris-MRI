@@ -91,7 +91,7 @@ class NiftiInsertionPipeline(BasePipeline):
             self._determine_subject_ids_based_on_json_patient_name()
 
         try:
-            validate_subject_ids(self.db, self.verbose, self.subject)
+            validate_subject_ids(self.db_orm, self.verbose, self.subject)
         except ValidateSubjectException as exception:
             self.imaging_obj.insert_mri_candidate_errors(
                 self.dicom_archive_obj.tarchive_info_dict['PatientName'],
