@@ -315,7 +315,9 @@ tarball_md5_sum = lib.dicom.text.make_hash(tar_path, True)
 print('Zipping DICOM tar (may take a long time)')
 
 with open(tar_path, 'rb') as tar:
-    with gzip.open(zip_path, 'wb') as zip:
+    # 6 is the default compression level of the tar command, Python's
+    # default is 9, which is slower.
+    with gzip.open(zip_path, 'wb', compresslevel=6) as zip:
         shutil.copyfileobj(tar, zip)
 
 print('Calculating DICOM zip MD5 sum')
