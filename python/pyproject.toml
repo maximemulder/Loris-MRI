@@ -1,0 +1,6 @@
+[tool.flake8]
+max-line-length = 120
+exclude = ["react-series-data-viewer/protocol_buffers/"]
+ignore = ["W503", "E202", "E203", "E221", "E241", "E251", "E272", "E126", "E131", "E121", "E111", "E114", "E127"]
+
+[tool.pyright]
