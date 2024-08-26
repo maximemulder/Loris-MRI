@@ -32,7 +32,7 @@ class DbCandidate(Base):
     proband_sate_of_birth   : Mapped[Optional[date]] = mapped_column('ProbandDoB')
 
     @staticmethod
-    def get_from_cand_id(db: Session, cand_id: int):
+    def get_with_cand_id(db: Session, cand_id: int):
         """
         Get a candidate from the database using its CandID, or `None` if these is no such candidate.
         """

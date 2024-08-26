@@ -1,10 +1,9 @@
 from typing import cast
 from sqlalchemy.orm import Session as Database
-from lib.database_lib.candidate_db import CandidateDB
-from lib.database_lib.visit_windows import VisitWindows
 from lib.dataclass.config import SubjectConfig
 from lib.db.orm.candidate import DbCandidate
 from lib.exception.validate_subject_exception import ValidateSubjectException
+from python.lib.db.orm.visit_window import DbVisitWindow
 
 
 def validate_subject_ids(db: Database, verbose: bool, subject: SubjectConfig):
@@ -13,7 +12,7 @@ def validate_subject_ids(db: Database, verbose: bool, subject: SubjectConfig):
     Raise an exception if an error is found, or return `None` otherwise.
     """
 
-    candidate = DbCandidate.get_from_cand_id(db, subject.cand_id)
+    candidate = DbCandidate.get_with_cand_id(db, subject.cand_id)
     if candidate is None:
         validate_subject_error(
             subject,
@@ -30,9 +29,8 @@ def validate_subject_ids(db: Database, verbose: bool, subject: SubjectConfig):
             f'Candidate PSCID = \'{candidate.psc_id}\', Subject PSCID = \'{subject.psc_id}\''
         )
 
-    visit_window_db = VisitWindows(db, verbose)
-    visit_window_exists = visit_window_db.check_visit_label_exists(subject.visit_label)
-    if not visit_window_exists and subject.create_visit is not None:
+    visit_window = DbVisitWindow.get_with_visit_label(db, subject.visit_label)
+    if visit_window is None and subject.create_visit is not None:
         validate_subject_error(
             subject,
             f'Visit label \'{subject.visit_label}\' does not exist in the database (table `Visit_Windows`).'
