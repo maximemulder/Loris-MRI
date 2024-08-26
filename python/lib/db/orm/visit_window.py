@@ -14,10 +14,10 @@ class DbVisitWindow(Base):
     window_midpoint_days : Mapped[Optional[int]] = mapped_column('WindowMidpointDays')
 
     @staticmethod
-    def get_with_visit_label(db: Session, visit_label: str):
+    def try_get_with_visit_label(db: Session, visit_label: str):
         """
-        Get a visit window from the database using its visit lavel, or `None` if these is no such
-        visit window.
+        Get a visit window from the database using its visit label, or return `None` if no visit
+        window is found.
         """
 
         query = select(DbVisitWindow).where(DbVisitWindow.visit_label == visit_label)

@@ -12,7 +12,7 @@ def validate_subject_ids(db: Database, verbose: bool, subject: SubjectConfig):
     Raise an exception if an error is found, or return `None` otherwise.
     """
 
-    candidate = DbCandidate.get_with_cand_id(db, subject.cand_id)
+    candidate = DbCandidate.try_get_with_cand_id(db, subject.cand_id)
     if candidate is None:
         validate_subject_error(
             subject,
@@ -29,7 +29,7 @@ def validate_subject_ids(db: Database, verbose: bool, subject: SubjectConfig):
             f'Candidate PSCID = \'{candidate.psc_id}\', Subject PSCID = \'{subject.psc_id}\''
         )
 
-    visit_window = DbVisitWindow.get_with_visit_label(db, subject.visit_label)
+    visit_window = DbVisitWindow.try_get_with_visit_label(db, subject.visit_label)
     if visit_window is None and subject.create_visit is not None:
         validate_subject_error(
             subject,
