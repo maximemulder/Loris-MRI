@@ -13,7 +13,7 @@ import lib.utilities
 
 from lib.database_lib.config import Config
 from lib.database import Database
-from lib.dicom_archive import DicomArchive
+from lib.db.orm.dicom_archive import DbDicomArchive
 from lib.imaging import Imaging
 from lib.log import Log
 from lib.imaging_upload import ImagingUpload
@@ -69,7 +69,7 @@ class BasePipeline:
         # Load the Config, Imaging, ImagingUpload, Tarchive, Session database classes
         # -----------------------------------------------------------------------------------
         self.config_db_obj = Config(self.db, self.verbose)
-        self.dicom_archive_obj = DicomArchive(self.db, self.verbose)
+        self.dicom_archive = None
         self.imaging_obj = Imaging(self.db, self.verbose, self.config_file)
         self.imaging_upload_obj = ImagingUpload(self.db, self.verbose)
         self.session_obj = Session(self.db, self.verbose)
@@ -110,9 +110,9 @@ class BasePipeline:
         # Verify PSC information stored in DICOMs
         # Grep scanner information based on what is in the DICOM headers
         # ---------------------------------------------------------------------------------
-        if self.dicom_archive_obj.tarchive_info_dict.keys():
+        if self.dicom_archive is not None:
             try:
-                self.subject = self.imaging_obj.determine_subject_ids(self.dicom_archive_obj.tarchive_info_dict)
+                self.subject = self.imaging_obj.determine_subject_ids(self.dicom_archive)
             except DetermineSubjectException as exception:
                 self.log_error_and_exit(
                     exception.message,
@@ -151,9 +151,8 @@ class BasePipeline:
             if not tarchive_id:
                 err_msg += f"UploadID {upload_id} is not linked to any tarchive in mri_upload."
                 self.log_error_and_exit(err_msg, lib.exitcode.SELECT_FAILURE, is_error="Y", is_verbose="N")
-            self.dicom_archive_obj.populate_tarchive_info_dict_from_tarchive_id(tarchive_id=tarchive_id)
-            db_archive_location = self.dicom_archive_obj.tarchive_info_dict['ArchiveLocation']
-            if os.path.join(self.data_dir, 'tarchive', db_archive_location) != tarchive_path:
+            self.dicom_archive = DbDicomArchive.get_with_id(self.db_orm, tarchive_id)
+            if os.path.join(self.data_dir, 'tarchive', self.dicom_archive.archive_location) != tarchive_path:
                 err_msg += f"UploadID {upload_id} and ArchiveLocation {tarchive_path} do not refer to the same upload"
                 self.log_error_and_exit(err_msg, lib.exitcode.SELECT_FAILURE, is_error="Y", is_verbose="N")
 
@@ -164,18 +163,14 @@ class BasePipeline:
             else:
                 if self.imaging_upload_obj.imaging_upload_dict["TarchiveID"]:
                     tarchive_id = self.imaging_upload_obj.imaging_upload_dict["TarchiveID"]
-                    self.dicom_archive_obj.populate_tarchive_info_dict_from_tarchive_id(tarchive_id=tarchive_id)
-                    if self.dicom_archive_obj.tarchive_info_dict:
-                        success = True
-                    else:
-                        err_msg += f"Could not load tarchive dictionary for TarchiveID {tarchive_id}"
+                    self.dicom_archive = DbDicomArchive.get_with_id(self.db_orm, tarchive_id)
+                    success = True
 
         elif tarchive_path:
             archive_location = tarchive_path.replace(self.dicom_lib_dir, "")
-            self.dicom_archive_obj.populate_tarchive_info_dict_from_archive_location(archive_location=archive_location)
-            if self.dicom_archive_obj.tarchive_info_dict:
-                tarchive_id = self.dicom_archive_obj.tarchive_info_dict["TarchiveID"]
-                success, new_err_msg = self.imaging_upload_obj.create_imaging_upload_dict_from_tarchive_id(tarchive_id)
+            self.dicom_archive = DbDicomArchive.try_get_with_location(self.db_orm, archive_location)
+            if self.dicom_archive is not None:
+                success, new_err_msg = self.imaging_upload_obj.create_imaging_upload_dict_from_tarchive_id(self.dicom_archive.id)
                 if not success:
                     err_msg += new_err_msg
             else:
@@ -222,11 +217,15 @@ class BasePipeline:
         """
         Determine the scanner information found in the database for the uploaded DICOM archive.
         """
+
+        # TODO: Refactor so that this cast is not needed.
+        dicom_archive = cast(DbDicomArchive, self.dicom_archive)
+
         scanner_id = self.imaging_obj.get_scanner_id(
-            self.dicom_archive_obj.tarchive_info_dict['ScannerManufacturer'],
-            self.dicom_archive_obj.tarchive_info_dict['ScannerSoftwareVersion'],
-            self.dicom_archive_obj.tarchive_info_dict['ScannerSerialNumber'],
-            self.dicom_archive_obj.tarchive_info_dict['ScannerModel'],
+            dicom_archive.scanner_manufacturer,
+            dicom_archive.scanner_software_version,
+            dicom_archive.scanner_serial_number,
+            dicom_archive.scanner_model,
             self.site_dict['CenterID'],
             self.session_obj.session_info_dict['ProjectID'] if self.session_obj.session_info_dict else None
         )

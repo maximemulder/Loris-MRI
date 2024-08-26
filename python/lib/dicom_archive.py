@@ -81,33 +81,3 @@ class DicomArchive:
         if "TarchiveID" in tarchive_series_info_dict.keys():
             tarchive_id = tarchive_series_info_dict["TarchiveID"]
             self.populate_tarchive_info_dict_from_tarchive_id(tarchive_id=tarchive_id)
-
-    def validate_dicom_archive_md5sum(self, tarchive_path):
-        """
-        This function validates that the md5sum of the DICOM archive on the filesystem is the same
-        as the md5sum of the registered entry in the tarchive table.
-
-        :param tarchive_path: path to the DICOM archive to be validated against the database
-         :type tarchive_path: str
-
-        :return result: dictionary with the result of the validation
-         :rtype result: dict
-        """
-
-        # compute the md5sum of the tarchive file
-        tarchive_file_md5sum = utilities.compute_md5_hash(tarchive_path)
-
-        # grep the md5sum stored in the database
-        tarchive_db_md5sum = self.tarchive_info_dict['md5sumArchive'].split()[0]
-
-        # check that the two md5sum are the same
-        result = dict()
-        if tarchive_db_md5sum == tarchive_file_md5sum:
-            result['success'] = True
-            result['message'] = f"checksum for target: {tarchive_file_md5sum}; " \
-                                f"checksum from database: {tarchive_db_md5sum}"
-        else:
-            result['success'] = False
-            result['message'] = "ERROR: DICOM archive seems corrupted or modified. Upload will exit now."
-
-        return result

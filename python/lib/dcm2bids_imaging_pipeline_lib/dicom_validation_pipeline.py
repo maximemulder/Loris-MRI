@@ -1,8 +1,11 @@
 import os
 import sys
+from typing import cast
 
 import lib.exitcode
+import lib.utilities as utilities
 from lib.dcm2bids_imaging_pipeline_lib.base_pipeline import BasePipeline
+from lib.db.orm.dicom_archive import DbDicomArchive
 
 __license__ = "GPLv3"
 
@@ -51,16 +54,30 @@ class DicomValidationPipeline(BasePipeline):
 
         self.log_info(message="Verifying DICOM archive md5sum (checksum)", is_error="N", is_verbose="Y")
 
-        tarchive_path = os.path.join(self.dicom_lib_dir, self.dicom_archive_obj.tarchive_info_dict["ArchiveLocation"])
-        result = self.dicom_archive_obj.validate_dicom_archive_md5sum(tarchive_path)
-        message = result["message"]
+        # TODO: Refactor so that this cast is not needed.
+        dicom_archive = cast(DbDicomArchive, self.dicom_archive)
 
-        if result['success']:
-            self.log_info(message, is_error="N", is_verbose="Y")
-        else:
+        dicom_archive_path = os.path.join(self.dicom_lib_dir, dicom_archive.archive_location)
+
+        # Compute the md5 sum of the DICOM archive file.
+        file_md5_sum = utilities.compute_md5_hash(dicom_archive_path)
+
+        # Get the MD5 sum stored in the database.
+        db_md5_sum = dicom_archive.md5_sum_archive.split()[0]
+
+        if file_md5_sum != db_md5_sum:
             self.imaging_upload_obj.update_mri_upload(
                 upload_id=self.upload_id,
-                fields=("isTarchiveValidated", "IsCandidateInfoValidated"),
-                values=("0", "0")
+                fields=('isTarchiveValidated', 'IsCandidateInfoValidated'),
+                values=('0', '0')
             )
-            self.log_error_and_exit(message, lib.exitcode.CORRUPTED_FILE, is_error="Y", is_verbose="N")
+
+            message = 'ERROR: DICOM archive seems corrupted or modified. Upload will exit now.'
+            self.log_error_and_exit(message, lib.exitcode.CORRUPTED_FILE, is_error='Y', is_verbose='N')
+
+        message = (
+            f"Checksum for target: {file_md5_sum}; "
+            f"Checksum from database: {db_md5_sum}"
+        )
+
+        self.log_info(message, is_error='N', is_verbose='Y')
