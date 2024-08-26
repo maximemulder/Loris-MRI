@@ -54,15 +54,15 @@ class DicomValidationPipeline(BasePipeline):
 
         self.log_info(message="Verifying DICOM archive md5sum (checksum)", is_error="N", is_verbose="Y")
 
-        # TODO: Refactor so that this cast is not needed.
+        # TODO: Refactor so that this cast is not needed
         dicom_archive = cast(DbDicomArchive, self.dicom_archive)
 
         dicom_archive_path = os.path.join(self.dicom_lib_dir, dicom_archive.archive_location)
 
-        # Compute the md5 sum of the DICOM archive file.
+        # Compute the md5 sum of the DICOM archive file
         file_md5_sum = utilities.compute_md5_hash(dicom_archive_path)
 
-        # Get the MD5 sum stored in the database.
+        # Get the MD5 sum stored in the database
         db_md5_sum = dicom_archive.md5_sum_archive.split()[0]
 
         if file_md5_sum != db_md5_sum:

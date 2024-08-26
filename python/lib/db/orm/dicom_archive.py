@@ -69,3 +69,18 @@ class DbDicomArchive(Base):
 
         query = select(DbDicomArchive).where(DbDicomArchive.archive_location == location)
         return db.execute(query).scalar_one_or_none()
+
+    @staticmethod
+    def try_get_with_series_uid_and_echo_time(db: Session, series_uid: str, echo_time: float):
+        """
+        Get a DICOM archive from the database using the Series UID and echo time of its DICOM
+        series, or return `None` if no DICOM series is found.
+        """
+
+        DbDicomArchiveSeries = db_dicom_archive_series.DbDicomArchiveSeries
+        dicom_archive_series = DbDicomArchiveSeries.try_get_with_series_uid_and_echo_time(db, series_uid, echo_time)
+
+        if dicom_archive_series is None:
+            return None
+
+        return dicom_archive_series.dicom_archive

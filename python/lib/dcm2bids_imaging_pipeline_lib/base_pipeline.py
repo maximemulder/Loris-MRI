@@ -218,7 +218,7 @@ class BasePipeline:
         Determine the scanner information found in the database for the uploaded DICOM archive.
         """
 
-        # TODO: Refactor so that this cast is not needed.
+        # TODO: Refactor so that this cast is not needed
         dicom_archive = cast(DbDicomArchive, self.dicom_archive)
 
         scanner_id = self.imaging_obj.get_scanner_id(

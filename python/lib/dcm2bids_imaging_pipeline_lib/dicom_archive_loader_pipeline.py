@@ -3,10 +3,12 @@ import os
 import re
 import subprocess
 import sys
+from typing import cast
 
 import lib.exitcode
 import lib.utilities
 from lib.dcm2bids_imaging_pipeline_lib.base_pipeline import BasePipeline
+from python.lib.db.orm.dicom_archive import DbDicomArchive
 
 __license__ = "GPLv3"
 
@@ -36,9 +38,9 @@ class DicomArchiveLoaderPipeline(BasePipeline):
         super().__init__(loris_getopt_obj, script_name)
         self.series_uid = self.options_dict["series_uid"]["value"]
         self.tarchive_path = os.path.join(
-            self.data_dir, "tarchive", self.dicom_archive_obj.tarchive_info_dict["ArchiveLocation"]
+            self.data_dir, "tarchive", self.dicom_archive.archive_location
         )
-        self.tarchive_id = self.dicom_archive_obj.tarchive_info_dict["TarchiveID"]
+        self.tarchive_id = self.dicom_archive.id
 
         # ---------------------------------------------------------------------------------------------
         # Run the DICOM archive validation script to check if the DICOM archive is valid
@@ -49,7 +51,7 @@ class DicomArchiveLoaderPipeline(BasePipeline):
         # Extract DICOM files from the tarchive
         # ---------------------------------------------------------------------------------------------
         self.extracted_dicom_dir = self.imaging_obj.extract_files_from_dicom_archive(
-            os.path.join(self.data_dir, 'tarchive', self.dicom_archive_obj.tarchive_info_dict["ArchiveLocation"]),
+            os.path.join(self.data_dir, 'tarchive', self.dicom_archive.archive_location),
             self.tmp_dir
         )
 
@@ -321,29 +323,26 @@ class DicomArchiveLoaderPipeline(BasePipeline):
         the `tarchive` table with the new `ArchiveLocation` and `SessionID`.
         """
 
-        tarchive_id = self.tarchive_id
-        acq_date = self.dicom_archive_obj.tarchive_info_dict["DateAcquired"]
-        archive_location = self.dicom_archive_obj.tarchive_info_dict["ArchiveLocation"]
+        # TODO: Refactor so that this cast is not needed
+        dicom_archive = cast(DbDicomArchive, self.dicom_archive)
 
-        fields_to_update = ("SessionID",)
-        values_for_update = (self.session_obj.session_id,)
-        pattern = re.compile("^[0-9]{4}/")
-        if acq_date and not pattern.match(archive_location):
-            # move the DICOM archive into a year subfolder
-            year_subfolder = acq_date.strftime("%Y")
-            new_archive_location = os.path.join(year_subfolder, archive_location)
-            destination_dir_path = os.path.join(self.data_dir, "tarchive", year_subfolder)
-            new_tarchive_path = os.path.join(destination_dir_path, archive_location)
+        dicom_archive.session_id = self.session_obj.session_id
+
+        if dicom_archive.date_acquired is not None and not re.match(r'\d{4}/', dicom_archive.archive_location):
+            # Move the DICOM archive into a year subfolder
+            year_subfolder = dicom_archive.date_acquired.year
+            new_archive_location = os.path.join(year_subfolder, dicom_archive.archive_location)
+            destination_dir_path = os.path.join(self.data_dir, 'tarchive', year_subfolder)
+            new_tarchive_path = os.path.join(destination_dir_path, dicom_archive.archive_location)
             if not os.path.exists(destination_dir_path):
                 # create the year subfolder is it does not exist yet on the filesystem
                 os.makedirs(destination_dir_path)
             os.replace(self.tarchive_path, new_tarchive_path)
-            self.tarchive_path = new_tarchive_path
-            # add the new archive location to the list of fields to update in the tarchive table
-            fields_to_update += ("ArchiveLocation",)
-            values_for_update += (new_archive_location,)
 
-        self.dicom_archive_obj.tarchive_db_obj.update_tarchive(tarchive_id, fields_to_update, values_for_update)
+            dicom_archive.archive_location = new_archive_location
+
+        # Update the DICOM archive in the database
+        self.db_orm.flush()
 
     def _compute_snr(self):
         # TODO: to be implemented later on. No clear paths as to how to compute that
