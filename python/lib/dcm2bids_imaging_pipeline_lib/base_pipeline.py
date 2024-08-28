@@ -6,6 +6,7 @@ from typing import cast
 
 from lib.dataclass.config import CreateVisitConfig
 from lib.db.connect import connect_to_db
+from lib.db.orm.mri_scanner import DbMriScanner
 from lib.exception.determine_subject_exception import DetermineSubjectException
 from lib.exception.validate_subject_exception import ValidateSubjectException
 import lib.exitcode
@@ -128,7 +129,7 @@ class BasePipeline:
             self.log_info(message, is_error="N", is_verbose="Y")
 
             # grep scanner information based on what is in the DICOM headers
-            self.scanner_id = self.determine_scanner_info()
+            self.scanner = self.determine_scanner_info()
 
     def load_imaging_upload_and_tarchive_dictionaries(self):
         """
@@ -221,7 +222,8 @@ class BasePipeline:
         # TODO: Refactor so that this cast is not needed
         dicom_archive = cast(DbDicomArchive, self.dicom_archive)
 
-        scanner_id = self.imaging_obj.get_scanner_id(
+        scanner = DbMriScanner.get_or_create(
+            self.db_orm,
             dicom_archive.scanner_manufacturer,
             dicom_archive.scanner_software_version,
             dicom_archive.scanner_serial_number,
@@ -229,9 +231,10 @@ class BasePipeline:
             self.site_dict['CenterID'],
             self.session_obj.session_info_dict['ProjectID'] if self.session_obj.session_info_dict else None
         )
-        message = f"Found Scanner ID: {str(scanner_id)}"
+
+        message = f"Found Scanner ID: {scanner.id}"
         self.log_info(message, is_error="N", is_verbose="Y")
-        return scanner_id
+        return scanner
 
     def validate_subject_ids(self):
         """

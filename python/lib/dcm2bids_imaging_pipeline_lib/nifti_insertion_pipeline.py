@@ -1,6 +1,7 @@
 import datetime
 import getpass
 import json
+from lib.db.orm.mri_scanner import DbMriScanner
 from lib.exception.determine_subject_exception import DetermineSubjectException
 from lib.exception.validate_subject_exception import ValidateSubjectException
 import lib.exitcode
@@ -85,7 +86,7 @@ class NiftiInsertionPipeline(BasePipeline):
         # ---------------------------------------------------------------------------------------------
         if self.dicom_archive is not None:
             self._validate_nifti_patient_name_with_dicom_patient_name()
-            self.subject = self.imaging_obj.determine_subject_ids(self.dicom_archive, self.scanner_id)
+            self.subject = self.imaging_obj.determine_subject_ids(self.dicom_archive, self.scanner.id)
         else:
             self._determine_subject_ids_based_on_json_patient_name()
 
@@ -338,14 +339,15 @@ class NiftiInsertionPipeline(BasePipeline):
         scan_param = self.json_file_dict
 
         # get scanner ID if not already figured out
-        if not self.scanner_id:
-            self.scanner_id = self.imaging_obj.get_scanner_id(
+        if self.scanner is None:
+            self.scanner = DbMriScanner.get_or_create(
+                self.db_orm,
                 self.json_file_dict['Manufacturer'],
                 self.json_file_dict['SoftwareVersions'],
                 self.json_file_dict['DeviceSerialNumber'],
                 self.json_file_dict['ManufacturersModelName'],
                 self.site_dict['CenterID'],
-                self.session_obj.session_info_dict['ProjectID']
+                self.session_obj.session_info_dict['ProjectID'],
             )
 
         # get the list of lines in the mri_protocol table that apply to the given scan based on the protocol group
@@ -354,7 +356,7 @@ class NiftiInsertionPipeline(BasePipeline):
             self.session_obj.session_info_dict['CohortID'],
             self.session_obj.session_info_dict['CenterID'],
             self.session_obj.session_info_dict['Visit_label'],
-            self.scanner_id
+            self.scanner.id
         )
 
         protocol_info = self.imaging_obj.get_acquisition_protocol_info(
@@ -662,7 +664,7 @@ class NiftiInsertionPipeline(BasePipeline):
             'InsertTime': datetime.datetime.now().timestamp(),
             'Caveat': 1 if self.warning_violations_list else 0,
             'TarchiveSource': self.dicom_archive.id,
-            'ScannerID': self.scanner_id,
+            'ScannerID': self.scanner.id,
             'AcquisitionDate': acquisition_date,
             'SourceFileID': None
         }
