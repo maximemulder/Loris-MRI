@@ -177,7 +177,7 @@ class BidsReader:
         for row in participants_info:
             # remove the "sub-" in front of the subject ID if present
             row['participant_id'] = row['participant_id'].replace('sub-', '')
-            if not row['participant_id'] in subjects:
+            if row['participant_id'] not in subjects:
                 print(mismatch_message)
                 print(row['participant_id'] + 'is missing from the BIDS Layout')
                 print('List of subjects parsed by the BIDS layout: ' + ', '.join(subjects))
