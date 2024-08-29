@@ -11,3 +11,6 @@ select = ["E", "W"]
 [tool.pyright]
 exclude = ["react-series-data-viewer"]
 strict = ["*"]
+
+[tool.pytest.ini-options]
+testpaths = ['tests']
