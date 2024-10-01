@@ -126,7 +126,7 @@ class Api:
 
         # Since it is not possible to send both a file and a JSON directly in a multipart/form-data
         # POST request, we send the JSON as a form data attribute.
-        data = { 'json': dumps(json) }
+        data = { 'Json': dumps(json) }
 
         try:
             response = requests.post(f'{self.loris_url}/api/{version}/{route}',headers=headers, data=data, files=files)

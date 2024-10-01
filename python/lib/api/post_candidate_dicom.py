@@ -12,10 +12,10 @@ def post_candidate_dicom(
     overwrite: bool = False,
 ):
     json = {
-        'CandID':    cand_id,
-        'PSCID':     psc_id,
-        'Visit':     visit_label,
-        'IsPhantom': is_phantom,
+        'CandID':     cand_id,
+        'PSCID':      psc_id,
+        'VisitLabel': visit_label,
+        'IsPhantom':  is_phantom,
     }
 
     if overwrite:
@@ -28,8 +28,7 @@ def post_candidate_dicom(
         f'/candidates/{cand_id}/{visit_label}/dicoms',
         headers=headers,
         json=json,
-        # TODO: Look into https://docs.python.org/3/library/mimetypes.html
-        files={'MriFile': (os.path.basename(file_path), open(file_path, 'rb'), 'application/tar')},
+        files={'File': (os.path.basename(file_path), open(file_path, 'rb'), 'application/tar')},
     )
 
     return response.text
