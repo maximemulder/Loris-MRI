@@ -54,7 +54,7 @@ class GetCandidateDicom:
 
     def __init__(self, object: Any):
         self.meta = GetCandidateDicomMeta(object['Meta'])
-        self.tars = list(map(GetCandidateDicomTar, object['DicomArchives']))
+        self.tars = list(map(GetCandidateDicomTar, object['DicomTars']))
 
 
 def get_candidate_dicom(api: Api, cand_id: int, visit: str):
