@@ -1,4 +1,5 @@
 import os
+
 from lib.dataclass.api import Api
 
 
@@ -16,17 +17,12 @@ def post_candidate_dicom(
         'PSCID':      psc_id,
         'VisitLabel': visit_label,
         'IsPhantom':  is_phantom,
+        'Overwrite': overwrite,
     }
-
-    if overwrite:
-        headers = {'LORIS-Overwrite': 'overwrite'}
-    else:
-        headers = {}
 
     response = api.post_file(
         'v0.0.4-dev',
         f'/candidates/{cand_id}/{visit_label}/dicoms',
-        headers=headers,
         json=json,
         files={'File': (os.path.basename(file_path), open(file_path, 'rb'), 'application/tar')},
     )
