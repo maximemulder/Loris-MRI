@@ -18,6 +18,7 @@ def test():
         'run_dicom_archive_loader.py',
         '--profile', 'database_config.py',
         '--tarchive_path', '/data/loris/tarchive/DCM_2015-07-07_ImagingUpload-14-30-FoTt1K.tar',
+        '--verbose',
     ], capture_output=True)
 
     # Print the standard output and error for debugging
