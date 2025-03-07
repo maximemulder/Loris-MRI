@@ -73,6 +73,8 @@ def get_dicom_study_summary(dicom_study_dir_path: str, verbose: bool):
     dicom_files.sort(key=cmp_to_key(compare_dicom_files))
     acquisitions.sort(key=cmp_to_key(compare_acquisitions))
 
+    print(dicom_files)
+
     return DicomStudySummary(study_info, acquisitions, dicom_files, other_files)
 
 
