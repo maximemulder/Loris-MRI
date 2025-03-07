@@ -101,6 +101,7 @@ def insert_files_series(db: Database, dicom_archive: DbDicomArchive, dicom_summa
     """
 
     for acquisition in dicom_summary.acquisitions:
+        print(acquisition)
         db.add(DbDicomArchiveSeries(
             archive_id         = dicom_archive.id,
             series_number      = acquisition.series_number,
@@ -119,6 +120,7 @@ def insert_files_series(db: Database, dicom_archive: DbDicomArchive, dicom_summa
     db.commit()
 
     for dicom_file in dicom_summary.dicom_files:
+
         dicom_series = get_dicom_archive_series_with_file_info(
             db,
             dicom_file.series_uid or '',
@@ -126,6 +128,7 @@ def insert_files_series(db: Database, dicom_archive: DbDicomArchive, dicom_summa
             dicom_file.echo_time,
             dicom_file.sequence_name,
         )
+        print(dicom_series)
 
         db.add(DbDicomArchiveFile(
             archive_id         = dicom_archive.id,
