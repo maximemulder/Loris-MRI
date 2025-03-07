@@ -38,6 +38,7 @@ def get_dicom_study_summary(dicom_study_dir_path: str, verbose: bool):
 
         try:
             dicom = pydicom.dcmread(file_path)  # type: ignore
+            print(dicom)
             if study_info is None:
                 study_info = get_dicom_study_info(dicom)
 
