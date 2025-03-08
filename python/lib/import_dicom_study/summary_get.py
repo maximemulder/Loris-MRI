@@ -38,7 +38,7 @@ def get_dicom_study_summary(dicom_study_dir_path: str, verbose: bool):
 
         try:
             dicom = pydicom.dcmread(file_path)  # type: ignore
-            print(dicom)
+
             if study_info is None:
                 study_info = get_dicom_study_info(dicom)
 
@@ -52,7 +52,6 @@ def get_dicom_study_summary(dicom_study_dir_path: str, verbose: bool):
                 raise pydicom.errors.InvalidDicomError
 
             dicom_files.append(get_dicom_file_info(dicom))
-            print(get_dicom_file_info(dicom))
 
             acquisition_key = DicomStudyAcquisitionKey(
                 series_number = dicom.SeriesNumber,
@@ -180,6 +179,10 @@ def read_value_none(dicom: pydicom.Dataset, tag: str):
     """
 
     if tag not in dicom:
+        for elem in dicom.iterall():
+            # to find header information in enhanced DICOMs, need to look into subheaders
+            if elem.tag == tag:
+                return elem.value
         return None
 
     return dicom[tag].value or None
