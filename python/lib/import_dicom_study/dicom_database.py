@@ -119,7 +119,6 @@ def insert_files_series(db: Database, dicom_archive: DbDicomArchive, dicom_summa
     db.commit()
 
     for dicom_file in dicom_summary.dicom_files:
-
         dicom_series = get_dicom_archive_series_with_file_info(
             db,
             dicom_file.series_uid or '',
