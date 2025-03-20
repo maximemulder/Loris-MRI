@@ -6,9 +6,9 @@ from lib.db.base import Base
 
 
 class DbCohort(Base):
-    __tablename__ = 'cohort'
+    __tablename__ = 'subproject'
 
-    id                             : Mapped[int]            = mapped_column('CohortID', primary_key=True)
+    id                             : Mapped[int]            = mapped_column('SubprojectID', primary_key=True)
     name                           : Mapped[str]            = mapped_column('title')
     use_edc                        : Mapped[Optional[bool]] = mapped_column('useEDC')
     window_difference              : Mapped[Optional[str]]  = mapped_column('WindowDifference')

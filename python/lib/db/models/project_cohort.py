@@ -6,10 +6,10 @@ from lib.db.base import Base
 
 
 class DbProjectCohort(Base):
-    __tablename__ = 'project_cohort_rel'
+    __tablename__ = 'project_subproject_rel'
 
-    id         : Mapped[int] = mapped_column('ProjectCohortRelID', primary_key=True)
+    id         : Mapped[int] = mapped_column('ProjectSubprojectRelID', primary_key=True)
     project_id : Mapped[int] = mapped_column('ProjectID', ForeignKey('Project.ProjectID'))
-    cohort_id  : Mapped[int] = mapped_column('CohortID')
+    cohort_id  : Mapped[int] = mapped_column('SubprojectID')
 
     project : Mapped['db_project.DbProject'] = relationship('DbProject')
